@@ -54,6 +54,7 @@ dependencies = [
     "html2text",
     "pytorch-lightning",
     "thefuzz",
+    "vllm"
 ]
 
 [tool.setuptools.packages.find]

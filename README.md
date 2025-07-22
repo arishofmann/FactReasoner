@@ -223,3 +223,4 @@ If you found the `FactReasoner` package useful, please cite the following paper:
 
 ## Contact
 Radu Marinescu (radu.marinescu@ie.ibm.com)
+Javier Carnerero Cano (javier.cano@ibm.com)

@@ -24,11 +24,11 @@ from typing import List
 from tqdm import tqdm
 from dotenv import load_dotenv
 
-from fm_factual.fact_utils import Atom, Context, build_atoms, build_contexts
-from fm_factual.atom_extractor import AtomExtractor
-from fm_factual.atom_reviser import AtomReviser
-from fm_factual.context_retriever import ContextRetriever
-from fm_factual.utils import RITS_MODELS, DEFAULT_PROMPT_BEGIN, DEFAULT_PROMPT_END
+from fact_utils import Atom, Context, build_atoms, build_contexts
+from atom_extractor import AtomExtractor
+from atom_reviser import AtomReviser
+from context_retriever import ContextRetriever
+from llm_handler import LLMHandler
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -42,32 +42,30 @@ QUESTION: {_QUESTION_PLACEHOLDER}
 RESPONSE:{_PROMPT_END_PLACEHOLDER}
 """
 
-def generate_model_responses(model: str, questions: List[str]) -> List[str]:
+def generate_model_responses(model_id: str, questions: List[str], use_rits: bool = True) -> List[str]:
     """
     Generate model responses for the input questions.
+
+    Args:
+        model_id: str
+            The model ID to use for generating responses.
+        questions: List[str]
+            A list of questions to generate responses for.
+        use_rits: bool
+            Whether to use RITS for generating responses or vLLM.
+    Returns:
+        List[str]: A list of generated responses for each question.
     """
 
-    rits_model_info = RITS_MODELS[model]
-    prompt_template = rits_model_info.get("prompt_template", None)
-    max_new_tokens = rits_model_info.get("max_new_tokens", None)
-    api_base = rits_model_info.get("api_base", None)
-    model_id = rits_model_info.get("model_id", None)
-    prompt_begin = rits_model_info.get("prompt_begin", DEFAULT_PROMPT_BEGIN)
-    prompt_end = rits_model_info.get("prompt_end", DEFAULT_PROMPT_END)
-    use_short_prompt = True if max_new_tokens <= 4096 else False
-
-    assert prompt_template is not None \
-        and max_new_tokens is not None \
-        and api_base is not None \
-        and model_id is not None
+    llm_handler = LLMHandler(model_id=model_id, use_rits=True)
+    prompt_begin = llm_handler.get_prompt_begin()
+    prompt_end = llm_handler.get_prompt_end()
 
     if not os.environ.get("_DOTENV_LOADED"):
         load_dotenv(override=True) 
         os.environ["_DOTENV_LOADED"] = "1"
         
-    RITS_API_KEY = os.getenv("RITS_API_KEY")
     print(f"Using LLM on RITS: {model_id}")
-    print(f"Using short prompt: {use_short_prompt}")
 
     # Format the prompts
     print(f"Formatting the prompts ...")
@@ -114,12 +112,13 @@ class DatasetProcessor:
             input_file: str,
             output_file: str,
             dataset_name: str,
-            model: str = "llama-3.1-70b-instruct", 
+            model_id: str = "llama-3.1-70b-instruct", 
             service_type: str = "google",
             top_k: int = 3,
             cache_dir: str = None,
             is_annotated: bool = False,
-            fetch_text: bool = False
+            fetch_text: bool = False,
+            use_rits: bool = True
     ):
         """
         Initialize the dataset processor.
@@ -131,7 +130,7 @@ class DatasetProcessor:
                 The output file (a .jsonl file).
             dataset_name: str
                 Name of the dataset.
-            model: str
+            model_id: str
                 Model name or path (e.g., meta-llama/llama-3-70b-instruct).
             service_type: str
                 Type of the retrieval service (chromadb or langchain).
@@ -143,12 +142,22 @@ class DatasetProcessor:
                 Flag indicating an annotated dataset (ground truth)
             fetch_text: bool
                 Flag indicating if text is fetched from a link (google link)
+            use_rits: bool
+                Flag indicating if RITS is used for model response generation.
+        Raises:
+            ValueError: If the dataset name is not supported.
+        Raises:
+            AssertionError: If the input file does not exist.
+        Raises:
+            AssertionError: If the output file already exists.
+        Raises:
+            AssertionError: If the model ID is not supported.
         """
 
         self.input_file = input_file
         self.output_file = output_file
         self.dataset_name = dataset_name
-        self.model = model
+        self.model_id = model_id
         self.service_type = service_type
         self.top_k = top_k
         self.cache_dir = cache_dir
@@ -156,8 +165,8 @@ class DatasetProcessor:
         self.fetch_text = fetch_text
 
         # Create the atom extractor
-        self.atom_extractor = AtomExtractor(model=self.model, prompt_version="v2")
-        self.atom_reviser = AtomReviser(model=self.model, prompt_version="v1")
+        self.atom_extractor = AtomExtractor(model_id=self.model_id, prompt_version="v2")
+        self.atom_reviser = AtomReviser(model_id=self.model_id, prompt_version="v1")
 
         # Create the context retriever
         self.context_retriever = ContextRetriever(
