@@ -16,12 +16,19 @@
 import os
 import litellm
 import torch
+import sys
 
 from vllm import LLM, SamplingParams
 from dotenv import load_dotenv
 
+if not __package__:
+    # Make CLI runnable from source tree with
+    #    python src/package
+    package_source_path = os.path.dirname(os.path.dirname(__file__))
+    sys.path.insert(0, package_source_path)
+
 # Local imports
-from utils import RITS_MODELS, DEFAULT_PROMPT_BEGIN, DEFAULT_PROMPT_END, HF_MODELS
+from fact_reasoner.utils import DEFAULT_PROMPT_BEGIN, DEFAULT_PROMPT_END, get_models_config
 
 GPU = torch.cuda.is_available()
 DEVICE = GPU*"cuda" + (not GPU)*"cpu"
@@ -34,34 +41,39 @@ class dotdict(dict):
 
 class LLMHandler:
     """
-    A handler for LLMs that can switch between RITS and vLLM based on the use_rits flag.
+    A handler for LLMs that can switch between different backends like rits,
+    huggingface, or watsonx. It is possible to extend the handler to support
+    additional backends like openai or anthropic.
     """
 
-    def __init__(self, model_id: str, use_rits: bool = True, dtype="auto", **default_kwargs):
+    def __init__(self, model_id: str, backend: str = "rits", dtype="auto", **default_kwargs):
         """
         Initializes the LLM handler.
 
         Args:
             model_id: str
                 The model name or path to load.
-            use_rits: bool
-                If True, uses the RITS model; if False, loads the model using vLLM.
+            backend: str
+                The model's backend such as [rits, hf, wx].
             dtype: str
                 The data type for the model (e.g., "auto", "half", "bfloat16").
             default_kwargs: dict
                 Default parameters to pass to completion calls (e.g., temperature, max_tokens).
         """
 
-        self.RITS = use_rits  # Flag to determine if RITS or vLLM is used
+        self.backend = backend  # The model's backend: one of [rits, hf, wx]
         self.default_kwargs = default_kwargs  # Store common parameters for completions
-
-        if not self.RITS:
-            self.HF_model_info = HF_MODELS[model_id]
+        assert backend in ["rits", "hf", "wx"], \
+            f"Model backend {backend} is not supported yet. Use `rits`, `hf` or `wx` only."
+        
+        self.models_config = get_models_config()
+        if self.backend == "hf":
+            self.HF_model_info = self.models_config["HF_MODELS"][model_id]
             self.model_id = self.HF_model_info.get("model_id", None)
             assert self.model_id is not None
             print(f"Loading local model with vLLM: {self.model_id}...")
             self.llm = LLM(model=self.model_id, device=DEVICE, dtype=dtype)  # Load model using vLLM
-        else:
+        elif self.backend == "rits":
 
             if not os.environ.get("_DOTENV_LOADED"):
                 load_dotenv(override=True) 
@@ -70,7 +82,7 @@ class LLMHandler:
             self.RITS_API_KEY = os.getenv("RITS_API_KEY")
 
             self.model_id = model_id
-            self.rits_model_info = RITS_MODELS[model_id]
+            self.rits_model_info = self.models_config["RITS_MODELS"][model_id]
 
             self.prompt_template = self.rits_model_info.get("prompt_template", None)
             self.max_new_tokens = self.rits_model_info.get("max_new_tokens", None)
@@ -82,13 +94,17 @@ class LLMHandler:
                 and self.max_new_tokens is not None \
                 and self.api_base is not None \
                 and self.model_id is not None
+        elif self.backend == "wx":
+            raise ValueError(f"WatsonX backend is not supported yet.")
+        else:
+            raise ValueError(f"Uknown backend value: {self.backend}")
 
     def get_prompt_begin(self):
         """
         Returns the prompt begin template for the model.
         """
 
-        if self.RITS:
+        if self.backend == "rits":
             return self.prompt_begin
         else:
             return ""  # vLLM does not use a prompt begin template
@@ -98,7 +114,7 @@ class LLMHandler:
         Returns the prompt end template for the model.
         """
 
-        if self.RITS:
+        if self.backend == "rits":
             return self.prompt_end
         else:
             return "" # vLLM does not use a prompt end template
@@ -149,7 +165,7 @@ class LLMHandler:
             **kwargs
         }  # Merge defaults with provided params
 
-        if self.RITS:
+        if self.backend == "rits":
             # Ensure we always send a list to batch_completion
             if isinstance(prompts, str):
                 return litellm.completion(
@@ -174,7 +190,7 @@ class LLMHandler:
                 },
                 **params
             )
-        else:
+        elif self.backend == "hf":
             # Ensure prompts is always a list for vLLM
             if isinstance(prompts, str):
                 prompts = [prompts]
@@ -255,14 +271,15 @@ class LLMHandler:
 if __name__ == "__main__":
 
     """
-    Test to compare RITS (litellm) and local (vLLM) outputs.
+    Test to compare remote (rits) and local (hf) outputs.
     """
     test_prompt = "What is the capital of France?"
 
     # RITS (litellm) API
+    print(f"Test LLMHandler on remote backend (rits)...")
     remote_handler = LLMHandler(
-        model="llama-3.1-70b-instruct",
-        RITS=True,
+        model_id="llama-3.3-70b-instruct",
+        backend="rits",
     )
     
     remote_response = remote_handler.completion(
@@ -277,15 +294,16 @@ if __name__ == "__main__":
     """
     local_handler = LLMHandler(
         model="mixtral-8x7b-instruct",
-        RITS=False,
+        backend="hf",
         dtype="half",
         logprobs=1
     )
     """
 
+    print(f"Test LLMHandler on local backend (hf)...")
     local_handler = LLMHandler(
-        model="facebook/opt-350m",
-        RITS=False,
+        model_id="facebook/opt-350m",
+        backend="hf",
         logprobs=1
     )
 

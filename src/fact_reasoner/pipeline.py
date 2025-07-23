@@ -798,6 +798,7 @@ def test():
     model = "llama-3.1-70b-instruct"
     cache_dir = "my_database.db"
 
+    # Create the pipeline modules
     context_retriever = ContextRetriever(service_type="google", top_k=5, cache_dir=cache_dir)
     context_summarizer = ContextSummarizer(model=model, prompt_version="v1")
     query_builder = QueryBuilder(model=model, prompt_version="v1")
@@ -805,6 +806,8 @@ def test():
     atom_reviser = AtomReviser(model)
     nli_extractor = NLIExtractor(model, prompt_version="v1")
 
+    # Path to merlin (probabilistic inference engine)
+    # TODO: figure out a way to use merlin's python bidings
     merlin_path = "/home/radu/git/fm-factual/lib/merlin"
 
     # Create the FactReasoner pipeline
