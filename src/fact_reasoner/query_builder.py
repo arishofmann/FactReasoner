@@ -15,13 +15,22 @@
 
 # Query builder for atoms to retrieve results from Google and/or Wikipedia
 
+import os
+import sys
+
 from tqdm import tqdm
 from typing import Dict, List
 
+if not __package__:
+    # Make CLI runnable from source tree with
+    #    python src/package
+    package_source_path = os.path.dirname(os.path.dirname(__file__))
+    sys.path.insert(0, package_source_path)
+
 # Local imports
-from utils import extract_last_square_brackets
-from llm_handler import LLMHandler
-from prompts import QUERY_BUILDER_PROMPT_V1, QUERY_BUILDER_PROMPT_V2
+from fact_reasoner.utils import extract_last_square_brackets
+from fact_reasoner.llm_handler import LLMHandler
+from fact_reasoner.prompts import QUERY_BUILDER_PROMPT_V1, QUERY_BUILDER_PROMPT_V2
 
 class QueryBuilder:
     """
@@ -29,7 +38,7 @@ class QueryBuilder:
     used to retrieve results from Google Search, Wikipedia, ChromaDB.
     """
 
-    def __init__(self, model_id: str, prompt_version: str = "v1", use_rits: bool = True):
+    def __init__(self, model_id: str, prompt_version: str = "v1", backend: str = "rits"):
         """
         Initialize the QueryBuilder.
 
@@ -38,17 +47,20 @@ class QueryBuilder:
                 The name of the LLM used for query generation.
             prompt_version: str
                 The version of the prompt to use for query generation.
-            use_rits: bool
-                Whether to use RITS for query generation or vLLM.
+            backend: str
+                The model's backend.
         """
 
         self.model_id = model_id
         self.prompt_version = prompt_version
-        self.use_rits = use_rits
-        self.llm_handler = LLMHandler(model_id, use_rits)
+        self.backend = backend
+        self.llm_handler = LLMHandler(model_id, backend)
 
         self.prompt_begin = self.llm_handler.get_prompt_begin()
         self.prompt_end = self.llm_handler.get_prompt_end()
+
+        print(f"[QueryBuilder] Using LLM on {self.backend}: {self.model_id}")
+        print(f"[QueryBuilder] Using prompt version: {self.prompt_version}")
     
     def make_prompt(self, statement: str, knowledge: str = "") -> str:
         """
@@ -147,9 +159,9 @@ if __name__ == "__main__":
 
     model_id = "mixtral-8x22b-instruct"
     prompt_version = "v1"
-    use_rits = True
+    backend = "rits"
 
-    qb = QueryBuilder(model_id, prompt_version, use_rits)
+    qb = QueryBuilder(model_id, prompt_version, backend)
 
     # Process a single atom (no knowledge)
     # atom = "The Apollo 14 mission to the Moon took place on January 31, 1971."

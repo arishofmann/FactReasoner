@@ -15,13 +15,14 @@
 
 import io
 import re
-from typing import Callable, List, Optional
-
+import os
+import sys
 import chromadb
 import html2text
 import requests
 import torch
 
+from typing import Callable, List, Optional
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 from chromadb.utils import embedding_functions
@@ -31,6 +32,12 @@ from langchain_community.vectorstores import InMemoryVectorStore
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from pypdf import PdfReader
+
+if not __package__:
+    # Make CLI runnable from source tree with
+    #    python src/package
+    package_source_path = os.path.dirname(os.path.dirname(__file__))
+    sys.path.insert(0, package_source_path)
 
 # Local
 from fact_reasoner.query_builder import QueryBuilder
@@ -485,7 +492,7 @@ if __name__ == '__main__':
 
     query = "Lanny Flaherty has appeared in Law & Order."
     cache_dir = "my_database.db"
-    query_builder = QueryBuilder(model="llama-3.1-70b-instruct")
+    query_builder = QueryBuilder(model_id="llama-3.3-70b-instruct", backend="rits")
 
     retriever = ContextRetriever(
         top_k=5,
