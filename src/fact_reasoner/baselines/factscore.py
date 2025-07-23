@@ -18,28 +18,25 @@
 import os
 import json
 import sys
-import argparse
-import torch
-import litellm
-import nltk
 import string
-import pandas as pd
-
-# litellm.set_verbose = True
 
 from typing import List
 from tqdm import tqdm
 from dotenv import load_dotenv
 
-# Local
+if not __package__:
+    # Make CLI runnable from source tree with
+    #    python src/package
+    package_source_path = os.path.dirname(os.path.dirname(__file__))
+    sys.path.insert(0, package_source_path)
+
+# Local imports
 from fact_reasoner.atom_extractor import AtomExtractor
 from fact_reasoner.atom_reviser import AtomReviser
 from fact_reasoner.context_retriever import ContextRetriever
 from fact_reasoner.fact_utils import Atom, Context, build_atoms, build_contexts
 from fact_reasoner.utils import extract_last_square_brackets
 from fact_reasoner.llm_handler import LLMHandler
-
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Version 1 of the prompt (from the original FactScore paper)
 FACTSCORE_PROMPT = """{_PROMPT_BEGIN_PLACEHOLDER}
@@ -60,43 +57,9 @@ Input: {_STATEMENT_PLACEHOLDER} True or False?
 Output:{_PROMPT_END_PLACEHOLDER}
 """
 
-# Version 2 of the prompt (based on more recent work VeriScore, FactBench)
-FACTBENCH_PROMPT = """{_PROMPT_BEGIN_PLACEHOLDER}
-
-Instructions:
-You are provided with a STATEMENT and several KNOWLEDGE points. \
-Your task is to evaluate the relationship between the STATEMENT and the KNOWLEDGE, following the steps outlined below:
-
-1. Summarize KNOWLEDGE Points: Carefully analyze the KNOWLEDGE points one by one and assess their relevance to the STATEMENT. \
-Summarize the main points of the KNOWLEDGE.
-2. Evaluate Evidence: Based on your reasoning:
-- If the KNOWLEDGE strongly implies or directly supports the STATEMENT, explain the supporting evidence.
-- If the KNOWLEDGE contradicts the STATEMENT, identify and explain the conflicting evidence.
-- If the KNOWLEDGE is insufficient to confirm or deny the STATEMENT, explain why the evidence is inconclusive.
-3. Restate the STATEMENT: After considering the evidence, restate the STATEMENT to maintain clarity.
-4. Final Answer: Based on your reasoning and the STATEMENT, determine your final answer. \
-Your final answer must be one of the following, wrapped in square brackets:
-- [Supported] if the STATEMENT is supported by the KNOWLEDGE.
-- [Contradicted] if the STATEMENT is contradicted by the KNOWLEDGE.
-- [Unverifiable] if the KNOWLEDGE is insufficient to verify the STATEMENT.
-
-Your task:
-
-KNOWLEDGE: 
-{_KNOWLEDGE_PLACEHOLDER}
-
-STATEMENT:
-{_STATEMENT_PLACEHOLDER}{_PROMPT_END_PLACEHOLDER}
-"""
-
 class FactScore:
     """
-    Our implementation of the FactScore paper. We implement both the original
-    FactScore pipeline that works with contexts retrieved from wikipedia (texts)
-    as well as the more recent version presented in the FactBench paper.
-
-        v1 - original FactScore paper
-        v2 - recent FactBench paper
+    Our implementation of the FactScore paper. 
     """
 
     def __init__(
@@ -104,12 +67,10 @@ class FactScore:
             context_retriever: ContextRetriever = None,
             atom_extractor: AtomReviser = None,
             atom_reviser: AtomReviser = None,
-            model_id: str = "llama-3.1-70b-instruct",
-            prompt_version: str = "v1",
+            model_id: str = "llama-3.3-70b-instruct",
             debug_mode: bool = False,
-            binary_output: bool = True,
             add_topic: bool = False,
-            use_rits: bool = True,
+            backend: str = "rits",
     ):
         """
         Construct the FactScore pipeline instance.
@@ -123,13 +84,8 @@ class FactScore:
                 The service used for decontextualizing the atoms.
             model: str
                 The name of the model used by FactScore.
-            prompt_version: str
-                The prompt version: v1 - FactScore, v2 - FactBench
             debug_mode: bool
                 Flaf indicating debug mode (default is False)
-            binary_output: bool
-                If true, the output labels are [S - Supported, NS - NotSupported].
-                Otherwise, the output labels are [S - Supported, C - Contradicted, U - Unverifiable or Undediced]
             add_topic: bool
                 If True, then the topic is added (relevant only for v1 and Biographies).
         """
@@ -141,30 +97,22 @@ class FactScore:
         self.add_topic = add_topic # default is False
 
         self.model_id = model_id
-        self.use_rits = use_rits
-        self.llm_handler = LLMHandler(model_id, use_rits)
+        self.backend = backend
+        self.llm_handler = LLMHandler(model_id, backend)
 
         self.context_retriever = context_retriever
         self.atom_extractor = atom_extractor
         self.atom_reviser = atom_reviser
-        self.prompt_version = prompt_version
-        self.binary_output = binary_output # default is True
+        self.binary_output = True # default is True
     
-        assert self.prompt_version in ["v1", "v2"], f"Unknown prompt version: {self.prompt_version}"
-        if self.prompt_version == "v1": # for FactScore force binary output
-            self.binary_output = True
-
         self.prompt_begin = self.llm_handler.get_prompt_begin()
         self.prompt_end = self.llm_handler.get_prompt_end()
-        self.use_short_prompt = True if self.max_new_tokens <= 4096 else False
 
         if not os.environ.get("_DOTENV_LOADED"):
             load_dotenv(override=True) 
             os.environ["_DOTENV_LOADED"] = "1"
          
-        print(f"[FactScore] Using LLM on RITS: {self.model_id}")
-        print(f"[FactScore] Using short prompt: {self.use_short_prompt}")
-        print(f"[FactScore] Prompt version: {self.prompt_version}")
+        print(f"[FactScore] Using LLM on {self.backend}: {self.model_id}")
         print(f"[FactScore] Binary output: {self.binary_output}")
 
         self.atoms = {} # indexed by atom id
@@ -373,38 +321,24 @@ class FactScore:
             title = psg["title"]
             text = psg["text"]
             snippet = psg.get("snippet", "")
-            if self.use_short_prompt: # check for small context (e.g., granite-3.0)
-                knowledge += "Title: {}\nSummary: {}\nText: {}\n\n".format(title, snippet, text[:2000])
-            else:
-                knowledge += "Title: {}\nSummary: {}\nText: {}\n\n".format(title, snippet, text)
+            knowledge += "Title: {}\nSummary: {}\nText: {}\n\n".format(title, snippet, text)
 
-        if self.prompt_version == "v1":
-            if topic is not None:
-                prompt = FACTSCORE_PROMPT.format(
-                    _PROMPT_BEGIN_PLACEHOLDER=self.prompt_begin,
-                    _PROMPT_END_PLACEHOLDER=self.prompt_end,
-                    _TOPIC_PLACEHOLDER=topic,
-                    _STATEMENT_PLACEHOLDER=atom,
-                    _KNOWLEDGE_PLACEHOLDER=knowledge,
-                )
-            else:
-                prompt = FACTSCORE_PROMPT_NOTOPIC.format(
-                    _PROMPT_BEGIN_PLACEHOLDER=self.prompt_begin,
-                    _PROMPT_END_PLACEHOLDER=self.prompt_end,
-                    _STATEMENT_PLACEHOLDER=atom,
-                    _KNOWLEDGE_PLACEHOLDER=knowledge,
-                )
-        elif self.prompt_version == "v2":
-            prompt = FACTBENCH_PROMPT.format(
+        if topic is not None:
+            prompt = FACTSCORE_PROMPT.format(
+                _PROMPT_BEGIN_PLACEHOLDER=self.prompt_begin,
+                _PROMPT_END_PLACEHOLDER=self.prompt_end,
+                _TOPIC_PLACEHOLDER=topic,
+                _STATEMENT_PLACEHOLDER=atom,
+                _KNOWLEDGE_PLACEHOLDER=knowledge,
+            )
+        else:
+            prompt = FACTSCORE_PROMPT_NOTOPIC.format(
                 _PROMPT_BEGIN_PLACEHOLDER=self.prompt_begin,
                 _PROMPT_END_PLACEHOLDER=self.prompt_end,
                 _STATEMENT_PLACEHOLDER=atom,
                 _KNOWLEDGE_PLACEHOLDER=knowledge,
             )
-        else:
-            raise ValueError(f"FactScore: Unknown prompt version {self.prompt_version}.")
 
-        # print(f"prompt length: {len(prompt)} chars, {len(nltk.word_tokenize(prompt))} words")        
         return prompt
 
     def extract_label(self, text: str) -> str:
@@ -414,34 +348,19 @@ class FactScore:
             [Supported], [Contradicted], [Unverifiable].
         We only consider [Supported]/S atoms, the others will be [NotSupported]/NS.
         """
-        if self.prompt_version == "v1": # only binary output supported
-            generated_answer = text.lower()
-            if "true" in generated_answer or "false" in generated_answer:
-                if "true" in generated_answer and "false" not in generated_answer:
-                    is_supported = True
-                elif "false" in generated_answer and "true" not in generated_answer:
-                    is_supported = False
-                else:
-                    is_supported = generated_answer.index("true") > generated_answer.index("false")
+        generated_answer = text.lower()
+        if "true" in generated_answer or "false" in generated_answer:
+            if "true" in generated_answer and "false" not in generated_answer:
+                is_supported = True
+            elif "false" in generated_answer and "true" not in generated_answer:
+                is_supported = False
             else:
-                is_supported = all([keyword not in generated_answer.lower().translate(str.maketrans("", "", string.punctuation)).split() for keyword in ["not", "cannot", "unknown", "information"]])
+                is_supported = generated_answer.index("true") > generated_answer.index("false")
+        else:
+            is_supported = all([keyword not in generated_answer.lower().translate(str.maketrans("", "", string.punctuation)).split() for keyword in ["not", "cannot", "unknown", "information"]])
 
-            label = "S" if is_supported else "NS"
-            return label
-        elif self.prompt_version == "v2":
-            label = extract_last_square_brackets(text)
-            if self.binary_output:
-                if len(label) > 0 and label.lower() in ['supported']:
-                    return "S"
-                else:
-                    return "NS"
-            else:
-                if len(label) > 0 and label.lower() in ['supported']:
-                    return "S"
-                elif len(label) > 0 and label.lower() in ['contradicted']:
-                    return "C"
-                else:
-                    return "U"
+        label = "S" if is_supported else "NS"
+        return label
                 
     def predict_atom_labels(self) -> dict:
         """
@@ -475,30 +394,19 @@ class FactScore:
                 passages=passages
             )
 
-            # print(f"prompt length: {len(prompt)} chars, {len(nltk.word_tokenize(prompt))} tokens")
             prompts.append(prompt)
 
         print(f"[FactScore] Prompts created: {len(prompts)}")
 
         # Prepare the LLM call
+        # Prepare the LLM call
         results = []
-        messages = [[dict(role="user", content=prompt)] for prompt in prompts]
         for _, response in tqdm(
             enumerate(
-                litellm.batch_completion(
-                    model=self.model_id,
-                    api_base=self.api_base,
-                    messages=messages,
-                    temperature=0,
-                    seed=42,
-                    api_key=self.RITS_API_KEY,
-                    extra_headers={
-                        "RITS_API_KEY": self.RITS_API_KEY
-                    }
-                )
+                self.llm_handler.batch_completion(prompts)
             ),
-            total=len(messages),
-            desc="Prediction",
+            total=len(prompts),
+            desc="FactScore",
             unit="prompts",
             ):
                 results.append(response.choices[0].message.content)
@@ -633,15 +541,15 @@ class FactScore:
 
         return results
 
-def test():
+if __name__ == "__main__":
 
-    model_id = "granite-3.1-8b-instruct"
-    prompt_version = "v2"
-    cache_dir = "/home/radu/data/cache"
+    model_id = "llama-3.3-70b-instruct"
+    backend = "rits"
+    cache_dir = None # "/home/radu/data/cache"
 
     context_retriever = ContextRetriever(service_type="google", top_k=5, cache_dir=cache_dir)
-    atom_extractor = AtomExtractor(model_id)
-    atom_reviser = AtomReviser(model_id)
+    atom_extractor = AtomExtractor(model_id=model_id, backend=backend)
+    atom_reviser = AtomReviser(model_id=model_id, backend=backend)
 
     # Create the FactScore pipeline
     pipeline = FactScore(
@@ -649,10 +557,8 @@ def test():
         atom_extractor=atom_extractor,
         atom_reviser=atom_reviser,
         model_id=model_id,
-        prompt_version=prompt_version,
-        binary_output=True,
         add_topic=True,
-        use_rits=True,  # Use RITS for the LLM
+        backend=backend,  # Use RITS for the LLM
     )
 
     # Load the problem instance from a file
@@ -673,186 +579,3 @@ def test():
     print(f"[FactScore] Results: {results}")
     print(f"Done.")
 
-
-if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--input_file', 
-        type=str, 
-        default=None, 
-        help="Path to the labeled dataset (gold)."
-    )
-    
-    parser.add_argument(
-        '--output_dir', 
-        type=str, 
-        default=None, 
-        help="Path to the output directory."
-    )
-
-    parser.add_argument(
-        '--cache_dir', 
-        type=str, 
-        default=None, 
-        help="Path to the cache directory."
-    )
-
-    parser.add_argument(
-        '--dataset_name', 
-        type=str, 
-        default=None, 
-        help="Name of the dataset."
-    )
-
-    parser.add_argument(
-        '--model', 
-        type=str, 
-        default="llama-3.1-70b-instruct", 
-        help="Name of the underlying LLM."
-    )
-
-    parser.add_argument(
-        '--binary_output', 
-        default=False, 
-        action='store_true', 
-        help="Ensure binary output for the atomic unit label prediction."
-    )
-
-    parser.add_argument(
-        '--add_topic', 
-        default=False, 
-        action='store_true', 
-        help="Ensure the the topic is added (relevant only for Biographies)."
-    )
-
-    parser.add_argument(
-        '--test', 
-        default=False, 
-        action='store_true', 
-        help="Debugging mode."
-    )
-
-    parser.add_argument(
-        '--service_type', 
-        type=str,
-        default="google", 
-        help="Retriever type (chromadb, langchain, google)."
-    )
-
-    parser.add_argument(
-        '--no_contexts', 
-        default=False, 
-        action='store_true', 
-        help="Flag for enabling FactScore Zero, without contexts."
-    )
-
-    parser.add_argument(
-        '--prompt_version', 
-        type=str,
-        default="v2", 
-        help="Prompt version (v1 - original, v2 - enhanced)."
-    )
-
-    args = parser.parse_args()
-
-    if args.test == True:
-        test()
-        sys.exit(0)
-
-    option = "1" if args.prompt_version == "v1" else "2"
-
-    # Create the atom extractor, atom reviser and context retriever
-    context_retriever = ContextRetriever(service_type=args.service_type, top_k=5, cache_dir=args.cache_dir)
-    atom_extractor = AtomExtractor(model=args.model)
-    atom_reviser = AtomReviser(model=args.model)
-
-    print(f"[FactScore] Processing input dataset: {args.input_file}")
-    filename = args.input_file # a jsonl file
-
-    with open(filename) as f:
-        lines = f.read().splitlines()
-    df_inter = pd.DataFrame(lines)
-    df_inter.columns = ['json_element']
-    df_inter['json_element'].apply(json.loads)
-    df = pd.json_normalize(df_inter['json_element'].apply(json.loads))
-    labeled_dataset = df.to_dict('records')
-    f.close()
-
-    print(f"[FactScore] Loading data from: {filename}")
-    print(f"[FactScore] Found {len(labeled_dataset)} elements")
-
-    # Check if previous results exist. If yes, load them and skip over them
-    # when processing the input dataset.
-    filename = "eval_results_factscore{}_{}_{}_{}.jsonl".format(
-        option,
-        args.service_type,
-        args.dataset_name,
-        args.model
-    )
-    output_filename = os.path.join(args.output_dir, filename)
-    print(f"[FactScore] Reading previous results from: {output_filename}")
-    evaluation_data = []
-    if os.path.isfile(output_filename):
-        with open(output_filename, "r") as f:
-            lines = f.readlines()
-            for line in lines:
-                evaluation_data.append(json.loads(line))
-
-    print(f"[FactScore] Found {len(evaluation_data)} existing evaluations data.")
-    for data in labeled_dataset: # 183 labeled bios (needs decontextualization)
-
-        # Check if current data has been processed already
-        processed = False
-        for eval_data in evaluation_data:
-            if eval_data["input"] == data["input"]:
-                processed = True
-                break
-        if processed:
-            print(f"[FactScore] Input {data} already processed.")
-            continue
-
-        # Process the data point with the FactScore pipeline
-        pipeline = FactScore(
-            context_retriever=context_retriever,
-            atom_extractor=atom_extractor,
-            atom_reviser=atom_reviser,
-            model=args.model,
-            prompt_version=args.prompt_version,
-            add_topic=args.add_topic,
-            binary_output=args.binary_output
-        )
-
-        # Load the problem instance from a file
-        ok = pipeline.from_dict_with_contexts(data)
-        if not ok:
-            continue # annotations are null (ignore)
-
-        # Build the FactScore pipeline 
-        pipeline.build(
-            has_atoms=True,
-            has_contexts=True,
-            decontextualize_atoms=False,
-            no_contexts=args.no_contexts
-        )
-
-        results = pipeline.score()
-        results["model_name"] = args.model
-        evaluation_data.append(results)
-        print(f"[FactScore] Results: {results}")
-
-        # Save results to a file (progressively)
-        filename = "eval_results_factscore{}_{}_{}_{}.jsonl".format(
-            option,
-            args.service_type,
-            args.dataset_name,
-            args.model
-        )
-        output_filename = os.path.join(args.output_dir, filename)
-        print(f"[FactScore] Writing results to: {output_filename}")
-        with open(output_filename, "w") as f:
-            for res in evaluation_data:
-                f.write(f"{json.dumps(res)}\n")
-        f.close()
-
-    print("Done.")
