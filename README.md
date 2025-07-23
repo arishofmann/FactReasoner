@@ -4,7 +4,7 @@
 ![Static Badge](https://img.shields.io/badge/version-1.0.0-red?style=flat)
 
 
-# `FactReasoner`: A Probabilistic Approach for Long-Form Factuality
+# `FactReasoner`: A Probabilistic Approach to Long-Form Factuality for Large Language Models
 
 Large language models (LLMs) have demonstrated vast capabilities on generative tasks in recent years, yet they struggle with guaranteeing the factual correctness of the generated content. This makes these models unreliable in realistic situations where factually accurate responses are expected. In this paper, we propose `FactReasoner`, a new factuality assessor that relies on probabilistic reasoning to assess the factuality of a long-form generated response. Specifically, `FactReasoner` decomposes the response into atomic units, retrieves relevant contexts for them from an external knowledge source, and constructs a joint probability distribution over the atoms and contexts using probabilistic encodings of the logical relationships (entailment, contradiction) between the textual utterances corresponding to the atoms and contexts. `FactReasoner` then computes the posterior probability of whether atomic units in the response are supported by the retrieved contexts.
 

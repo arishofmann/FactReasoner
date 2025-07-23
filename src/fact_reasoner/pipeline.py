@@ -35,19 +35,19 @@ logger.setLevel(logging.WARNING)
 from dotenv import load_dotenv
 
 # Local
-from fm_factual.atom_extractor import AtomExtractor
-from fm_factual.atom_reviser import AtomReviser
-from fm_factual.context_retriever import ContextRetriever
-from fm_factual.query_builder import QueryBuilder
+from fact_reasoner.atom_extractor import AtomExtractor
+from fact_reasoner.atom_reviser import AtomReviser
+from fact_reasoner.context_retriever import ContextRetriever
+from fact_reasoner.query_builder import QueryBuilder
 
-from fm_factual.context_summarizer import ContextSummarizer
-from fm_factual.nli_extractor import NLIExtractor, NLIExtractorOld
+from fact_reasoner.context_summarizer import ContextSummarizer
+from fact_reasoner.nli_extractor import NLIExtractor
 
-from fm_factual.fact_graph import FactGraph
-from fm_factual.fact_utils import Atom, Context, Relation, build_atoms, build_contexts, build_relations
-from fm_factual.fact_utils import remove_duplicated_contexts, remove_duplicated_atoms, is_relevant_context, PRIOR_PROB_ATOM, PRIOR_PROB_CONTEXT
+from fact_reasoner.fact_graph import FactGraph
+from fact_reasoner.fact_utils import Atom, Context, Relation, build_atoms, build_contexts, build_relations
+from fact_reasoner.fact_utils import remove_duplicated_contexts, remove_duplicated_atoms, is_relevant_context, PRIOR_PROB_ATOM, PRIOR_PROB_CONTEXT
 
-from fm_factual.utils import RITS_MODELS, DEFAULT_PROMPT_BEGIN, DEFAULT_PROMPT_END
+from fact_reasoner.utils import RITS_MODELS, DEFAULT_PROMPT_BEGIN, DEFAULT_PROMPT_END
 
 # pgmpy set the root logger to INFO -- changed it to WARNING
 import logging
@@ -275,13 +275,13 @@ class FactReasoner:
 
         Args:
             response: str
-                The input LLM generated response
+                The input LLM generated long-form response.
             debug_mode: bool
-                Boolean flag indicating debugging mode (default False)
+                Boolean flag indicating debugging mode (default False).
             has_atoms: bool
                 Flag indicating if the atoms were previously initialized.
             has_contexts: bool
-                Flag indicating is the contexts were previously initialized.
+                Flag indicating if the contexts were previously initialized.
             revise_atoms: bool
                 Flag indicating that the atoms will be revised (decontextualized).
             remove_duplicates: bool
@@ -803,8 +803,7 @@ def test():
     query_builder = QueryBuilder(model=model, prompt_version="v1")
     atom_extractor = AtomExtractor(model)
     atom_reviser = AtomReviser(model)
-    # nli_extractor = NLIExtractor(model, prompt_version="v1")
-    nli_extractor = NLIExtractorOld(model, prompt_version="v2")
+    nli_extractor = NLIExtractor(model, prompt_version="v1")
 
     merlin_path = "/home/radu/git/fm-factual/lib/merlin"
 

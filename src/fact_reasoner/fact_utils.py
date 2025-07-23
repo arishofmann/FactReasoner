@@ -20,7 +20,6 @@ from operator import itemgetter
 from itertools import combinations
 from nltk.tokenize import sent_tokenize
 
-
 # Local
 from fact_reasoner.atom_extractor import AtomExtractor
 from fact_reasoner.context_retriever import ContextRetriever
