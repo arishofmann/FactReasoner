@@ -63,21 +63,21 @@ This version also retrieves up to $k$ contexts for each atom $A_i$, but it subse
 ## Installation Instructions
 For development and running experiments, we need to create a Python 3.10 
 environment that contains the required dependencies. This can be done easily by
-cloning the `fm-factual` git repository, creating a conda environment with Python 3.10
-and installing the `fm-factual` package in that environment, as follows:
+cloning the `FactReasoner` git repository, creating a conda environment with Python 3.10
+and installing the main `fact_reasoner` package in that environment, as follows:
 
 ```
-git clone git@github.ibm.com:IBM-Research-AI/fm-factual.git
-cd fm-factual
-conda create -n factual python=3.10
-conda activate factual
+git clone git@github.com:/IBM/FactReasoner.git
+cd FactReasoner
+conda create -n fr python=3.10
+conda activate fr
 pip install -e .
 ```
 
 In addition, `FactReasoner` relies on an external probabilistic reasoning engine. We use the open-source C++ `merlin` probabilistic inference library available [here](https://github.com/radum2275/merlin). The C++ library needs to be compiled locally and the path to the binary must be provided as a CLI argument to the `FactReasoner` assessor. 
 
-## Running `FactReasoner`
-The main script that implements the `FactReasoner` pipeline is `fm_factual/fact_reasoner.py` and accepts the following CLI arguments:
+## Running the `FactReasoner` pipeline
+The main script that implements the `FactReasoner` pipeline is `src/fact_reasoner/pipeline.py` and accepts the following CLI arguments:
 
 ```
 usage: fact_reasoner.py [-h] [--input_file INPUT_FILE] [--output_dir OUTPUT_DIR] [--cache_dir CACHE_DIR] [--dataset_name DATASET_NAME] [--service_type SERVICE_TYPE] [--model MODEL] [--version VERSION] [--top_k TOP_K] [--use_priors] [--text_only] [--nli_prompt_version NLI_PROMPT_VERSION] [--atomizer_prompt_version ATOMIZER_PROMPT_VERSION] [--reviser_prompt_version REVISER_PROMPT_VERSION] [--test] [--bert_nli] [--merlin_path MERLIN_PATH]
@@ -222,5 +222,5 @@ If you found the `FactReasoner` package useful, please cite the following paper:
 ```
 
 ## Contact
-Radu Marinescu (radu.marinescu@ie.ibm.com)
+Radu Marinescu (radu.marinescu@ie.ibm.com),
 Javier Carnerero Cano (javier.cano@ibm.com)
