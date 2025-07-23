@@ -54,7 +54,8 @@ dependencies = [
     "html2text",
     "pytorch-lightning",
     "thefuzz",
-    "vllm"
+    "vllm",
+    "langchain_huggingface"
 ]
 
 [tool.setuptools.packages.find]

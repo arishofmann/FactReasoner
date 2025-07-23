@@ -21,9 +21,9 @@ from typing import List, Any
 from tqdm import tqdm
 
 # Local imports
-from utils import strip_string, extract_first_code_block, extract_last_wrapped_response
-from llm_handler import LLMHandler
-from prompts import ATOM_REVISER_PROMPT_V1, ATOM_REVISER_PROMPT_V2
+from fact_reasoner.utils import strip_string, extract_first_code_block, extract_last_wrapped_response
+from fact_reasoner.llm_handler import LLMHandler
+from fact_reasoner.prompts import ATOM_REVISER_PROMPT_V1, ATOM_REVISER_PROMPT_V2
 
 class AtomReviser:
     """

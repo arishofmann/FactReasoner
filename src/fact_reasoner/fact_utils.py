@@ -13,23 +13,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Atom and Context classes
+import nltk
+
 from typing import Tuple, Union, List, Optional
 from operator import itemgetter
 from itertools import combinations
 from nltk.tokenize import sent_tokenize
-import nltk
+
 
 # Local
-from fm_factual.atom_extractor import AtomExtractor
-from fm_factual.context_retriever import ContextRetriever
-from fm_factual.nli_extractor import NLIExtractor, NLIExtractorOld
-from fm_factual.utils import punctuation_only_inside_quotes
+from fact_reasoner.atom_extractor import AtomExtractor
+from fact_reasoner.context_retriever import ContextRetriever
+from fact_reasoner.nli_extractor import NLIExtractor
+from fact_reasoner.utils import punctuation_only_inside_quotes
 
-
+# Defaut prior probabilities for atoms and contexts
 PRIOR_PROB_ATOM = 0.5
 PRIOR_PROB_CONTEXT = 0.9
-
 
 class Atom:
     """

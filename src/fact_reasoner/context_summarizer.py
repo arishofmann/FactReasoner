@@ -23,9 +23,10 @@ from typing import List
 from dotenv import load_dotenv
 from tqdm import tqdm
 
-from utils import strip_string, extract_first_code_block, dotdict
-from llm_handler import LLMHandler
-from prompts import CONTEXT_SUMMARIZATION_PROMPT_V1
+# Local
+from fact_reasoner.utils import strip_string, extract_first_code_block, dotdict
+from fact_reasoner.llm_handler import LLMHandler
+from fact_reasoner.prompts import CONTEXT_SUMMARIZATION_PROMPT_V1
 
 class ContextSummarizer:
     """

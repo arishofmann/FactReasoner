@@ -22,7 +22,6 @@ import html2text
 import requests
 import torch
 
-# from langchain.text_splitter import SentenceTransformersTokenTextSplitter
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 from chromadb.utils import embedding_functions
@@ -33,11 +32,10 @@ from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from pypdf import PdfReader
 
-from fm_factual.query_builder import QueryBuilder
-from fm_factual.search_api import SearchAPI
+# Local
+from fact_reasoner.query_builder import QueryBuilder
+from fact_reasoner.search_api import SearchAPI
 
-COLLECTION_NAME = "wikipedia_en"
-DB_PATH = "/home/radu/wiki_data"
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 NEWLINES_RE = re.compile(r"\n{2,}")  # two or more "\n" characters
 
@@ -47,8 +45,6 @@ CHARACTER_SPLITTER = RecursiveCharacterTextSplitter(
     chunk_size=1000,
     chunk_overlap=0
 )
-
-# TOKEN_SPLITTER = SentenceTransformersTokenTextSplitter(chunk_overlap=0, tokens_per_chunk=256)
 
 def remove_citation(paragraph: str) -> str:
     """Remove all citations (numbers in side square brackets) in paragraph"""
@@ -200,10 +196,9 @@ class ContextRetriever:
     
     def __init__(
             self,
-            db_address: str = "9.59.197.15",
-            db_port: int = "5000",
-            db_remote: bool = False,
             service_type: str = "chromadb",
+            collection_name: str = "wikipedia_en",
+            persist_directory: str = "/tmp/wiki_db",
             top_k: int = 1,
             cache_dir: Optional[str] = None,
             debug: bool = False,
@@ -215,14 +210,12 @@ class ContextRetriever:
         Initialize the context retriever component.
 
         Args:
-            db_address: str
-                The IP address of the host running the API to the vector store.
-            db_port: int
-                The port of the host running the API for querying the vector store.
-            db_remote: bool
-                Flag indicating a remote (http) service.
             service_type: str
                 The type of the context retriever (chromadb, langchain, google)
+            collection_name: str
+                Name of the collection of documents stored in the vectorstore
+            persist_directory: str
+                The dir name where the vectorstore is persisted
             top_k: int
                 The top k most relevant contexts.
             cache_dir: str
@@ -241,9 +234,6 @@ class ContextRetriever:
         """
         
         self.top_k = top_k
-        self.db_address = db_address
-        self.db_port = db_port
-        self.db_remote = db_remote
         self.service_type = service_type
         self.chromadb_retriever = None
         self.langchain_retriever = None
@@ -254,17 +244,18 @@ class ContextRetriever:
         self.fetch_text = fetch_text
         self.use_in_memory_vectorstore = use_in_memory_vectorstore
         self.query_builder = query_builder
+        self.collection_name = collection_name
+        self.persist_directory = persist_directory
 
         assert self.service_type in ["chromadb", "langchain", "google"]
 
         if self.service_type == "chromadb":
-            if not self.db_remote: # Create a local ChromaDB client
-                self.chromadb_retriever = ChromaReader(
-                    collection_name=COLLECTION_NAME, 
-                    persist_directory=DB_PATH, 
-                    embedding_model=EMBEDDING_MODEL, 
-                    collection_metadata={"hnsw:space": "cosine"}
-                )
+            self.chromadb_retriever = ChromaReader(
+                collection_name=self.collection_name, 
+                persist_directory=self.persist_directory, 
+                embedding_model=EMBEDDING_MODEL, 
+                collection_metadata={"hnsw:space": "cosine"}
+            )
         elif self.service_type == "langchain":
             # Create the Wikipedia retriever. Note that page content is capped
             # at 4000 chars. The metadata has a `title` and a `summary` of the page.
@@ -298,44 +289,23 @@ class ContextRetriever:
 
         results = []
         if self.service_type == "chromadb":
-            if self.db_remote:
-                if self.debug:
-                    print(f"Retrieving {self.top_k} relevant documents for query: {text}")
-                    print(f"Using chromadb")
+            if self.debug:
+                print(f"Retrieving {self.top_k} relevant documents for query: {text}")
+                print(f"Using chromadb")
 
-                # Send a POST request with JSON data using the session object
-                headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
-                url = "http://" + self.host_address + ":" + str(self.host_port) + "/query"
-                data = dict(
-                    query_text=text, 
-                    n_results=self.top_k,
-                )
+            # Retrieve the relevant chunks from the vector store
+            relevant_chunks = self.chromadb_retriever.query(
+                query_texts=[text],
+                n_results=self.top_k,
+            )
 
-                # Get the response
-                with requests.Session() as s:
-                    response = s.post(url, json=data, headers=headers)
-                    results = []
-                    if response.status_code == 200: # success
-                        passages = response.json()
-                        results = [passages[str(i)] for i in range(len(passages))]
-            else: # local
-                if self.debug:
-                    print(f"Retrieving {self.top_k} relevant documents for query: {text}")
-                    print(f"Using chromadb")
+            # Get the chunks (documents)
+            docs = relevant_chunks["documents"][0]
+            passages = [dict(title=get_title(doc), text=make_uniform(doc), snippet="", link="") for doc in docs]
 
-                # Retrieve the relevant chunks from the vector store
-                relevant_chunks = self.chromadb_retriever.query(
-                    query_texts=[text],
-                    n_results=self.top_k,
-                )
-
-                # Get the chunks (documents)
-                docs = relevant_chunks["documents"][0]
-                passages = [dict(title=get_title(doc), text=make_uniform(doc), snippet="", link="") for doc in docs]
-
-                n = min(self.top_k, len(passages))
-                for i in range(n):
-                    results.append(passages[i]) # a passage is a dict with title and text as keys
+            n = min(self.top_k, len(passages))
+            for i in range(n):
+                results.append(passages[i]) # a passage is a dict with title and text as keys
         elif self.service_type == "langchain":
             if self.debug:
                 print(f"Retrieving {self.top_k} relevant documents for query: {text}")

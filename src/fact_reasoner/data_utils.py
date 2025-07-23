@@ -24,11 +24,12 @@ from typing import List
 from tqdm import tqdm
 from dotenv import load_dotenv
 
-from fact_utils import Atom, Context, build_atoms, build_contexts
-from atom_extractor import AtomExtractor
-from atom_reviser import AtomReviser
-from context_retriever import ContextRetriever
-from llm_handler import LLMHandler
+# Local imports
+from fact_reasoner.fact_utils import Atom, Context, build_atoms, build_contexts
+from fact_reasoner.atom_extractor import AtomExtractor
+from fact_reasoner.atom_reviser import AtomReviser
+from fact_reasoner.context_retriever import ContextRetriever
+from fact_reasoner.llm_handler import LLMHandler
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 

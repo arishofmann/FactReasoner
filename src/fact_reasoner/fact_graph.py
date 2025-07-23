@@ -252,8 +252,8 @@ class FactGraph:
 
 if __name__ == "__main__":
 
-    file = "/home/radu/git/fm-factual/examples/graph.json"
-    g = FactGraph()
-    g.from_json(json_file=file)
-    g.dump()
+    # file = "/home/radu/git/fm-factual/examples/graph.json"
+    # g = FactGraph()
+    # g.from_json(json_file=file)
+    # g.dump()
     print(f"Done.")

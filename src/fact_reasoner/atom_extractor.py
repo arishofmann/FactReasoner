@@ -13,14 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Split the input text into atomic facts/claims (based on FactBench/VERIFY).
+# Split the input text into atomic facts/claims (LLM based).
 
 from typing import Any, List
 from tqdm import tqdm
 
 # Local imports
-from prompts import ATOM_EXTRACTION_PROMPT_V1, ATOM_EXTRACTION_PROMPT_V2
-from llm_handler import LLMHandler
+from fact_reasoner.prompts import ATOM_EXTRACTION_PROMPT_V1, ATOM_EXTRACTION_PROMPT_V2
+from fact_reasoner.llm_handler import LLMHandler
 
 _ATOM = 'atom'
 _LABEL = 'label'
