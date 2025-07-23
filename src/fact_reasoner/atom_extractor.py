@@ -15,8 +15,17 @@
 
 # Split the input text into atomic facts/claims (LLM based).
 
+import os
+import sys
+
 from typing import Any, List
 from tqdm import tqdm
+
+if not __package__:
+    # Make CLI runnable from source tree with
+    #    python src/package
+    package_source_path = os.path.dirname(os.path.dirname(__file__))
+    sys.path.insert(0, package_source_path)
 
 # Local imports
 from fact_reasoner.prompts import ATOM_EXTRACTION_PROMPT_V1, ATOM_EXTRACTION_PROMPT_V2
@@ -111,7 +120,7 @@ class AtomExtractor(object):
         self, 
         model_id: str = "llama-3.1-70b-instruct",
         prompt_version: str = "v1",
-        use_rits: bool = True
+        backend: str = "rits"
     ):
         """
         Initialize the AtomExtractor.
@@ -121,21 +130,21 @@ class AtomExtractor(object):
                 The model id used for extraction.
             prompt_version: str
                 The prompt version used for the model (v1 - original, v2 - newer)
-            use_rits: bool
-                Whether to use the internal RITS service or vLLM.
+            backend: str
+                The model's backend (rits, hf or wx).
         """ 
         
         # Initialize the extractor
         self.model_id = model_id
-        self.use_rits = use_rits
+        self.backend = backend
         self.prompt_version = prompt_version
-        self.llm_handler = LLMHandler(self.model_id, RITS=use_rits)
+        self.llm_handler = LLMHandler(self.model_id, backend=backend)
 
         # Set the prompt begin and end templates
         self.prompt_begin = self.llm_handler.get_prompt_begin()
         self.prompt_end = self.llm_handler.get_prompt_end()
         
-        print(f"[AtomExtractor] Using LLM on {use_rits*'RITS'}{(not use_rits)*'vLLM'}: {self.model}")
+        print(f"[AtomExtractor] Using LLM on {self.backend}: {self.model_id}")
         print(f"[AtomExtractor] Using prompt version: {self.prompt_version}")
 
     def make_prompt(self, response: str) -> str:
@@ -272,10 +281,11 @@ class AtomExtractor(object):
 
 if __name__ == "__main__":
 
-    model = "llama-3.3-70b-instruct"
+    model_id = "llama-3.3-70b-instruct"
     prompt_version = "v2"
+    backend = "rits"
 
-    extractor = AtomExtractor(model=model, prompt_version=prompt_version)
+    extractor = AtomExtractor(model_id=model_id, prompt_version=prompt_version, backend=backend)
 
     response = "The Apollo 14 mission to the Moon took place on January 31, 1971. \
         This mission was significant as it marked the third time humans set \
