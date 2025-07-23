@@ -15,10 +15,18 @@
 
 # Atomic fact decontextualization using LLMs
 
+import os
+import sys
 import string
 
 from typing import List, Any
 from tqdm import tqdm
+
+if not __package__:
+    # Make CLI runnable from source tree with
+    #    python src/package
+    package_source_path = os.path.dirname(os.path.dirname(__file__))
+    sys.path.insert(0, package_source_path)
 
 # Local imports
 from fact_reasoner.utils import strip_string, extract_first_code_block, extract_last_wrapped_response
@@ -33,9 +41,9 @@ class AtomReviser:
 
     def __init__(
             self,
-            model_id: str = "llama-3.1-70b-instruct",
+            model_id: str = "llama-3.3-70b-instruct",
             prompt_version: str = "v1",
-            use_rits: bool = True
+            backend: str = "rits"
     ):
         """
         Initialize the AtomReviser with the specified model and prompt version.
@@ -45,19 +53,19 @@ class AtomReviser:
                 The name/id of the model.
             prompt_version: str
                 The prompt version used. Allowed values are v1 - newer, v2 - original.
-            use_rits: bool
-                Whether to use the internal RITS service or vLLM.
+            backend: str
+                The model's backend.
         """
         
         self.model_id = model_id
-        self.use_rits = use_rits
+        self.backend = backend
         self.prompt_version = prompt_version
-        self.llm_handler = LLMHandler(model_id, use_rits)
+        self.llm_handler = LLMHandler(model_id, backend)
 
         self.prompt_begin = self.llm_handler.get_prompt_begin()
         self.prompt_end = self.llm_handler.get_prompt_end()
             
-        print(f"[AtomReviser] Using LLM on {use_rits*'RITS'}{(not use_rits)*'vLLM'}: {self.model}")
+        print(f"[AtomReviser] Using LLM on {self.backend}: {self.model_id}")
         print(f"[AtomReviser] Using prompt version: {self.prompt_version}")
 
     def make_prompt(self, unit: str, response: str):
@@ -196,8 +204,9 @@ class AtomReviser:
         
 if __name__ == "__main__":
     
-    model = "granite-3.2-8b-instruct"
+    model_id = "granite-3.2-8b-instruct"
     prompt_version = "v2"
+    backend = "rits"
 
     response = "Lanny Flaherty is an American actor born on December 18, 1949, \
         in Pensacola, Florida. He has appeared in numerous films, television \
@@ -218,7 +227,7 @@ if __name__ == "__main__":
         "His career began in the late 1970s."
     ]
 
-    reviser = AtomReviser(model=model, prompt_version=prompt_version)
+    reviser = AtomReviser(model_id=model_id, prompt_version=prompt_version, backend=backend)
     results = reviser.run(atoms, response)
     for elem in results:
         orig_atom = elem["atom"]
