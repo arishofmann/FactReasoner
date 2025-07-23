@@ -67,7 +67,7 @@ cloning the `FactReasoner` git repository, creating a conda environment with Pyt
 and installing the main `fact_reasoner` package in that environment, as follows:
 
 ```
-git clone git@github.com:/IBM/FactReasoner.git
+git clone git@github.com:IBM/FactReasoner.git
 cd FactReasoner
 conda create -n fr python=3.10
 conda activate fr
@@ -80,10 +80,12 @@ In addition, `FactReasoner` relies on an external probabilistic reasoning engine
 The main script that implements the `FactReasoner` pipeline is `src/fact_reasoner/pipeline.py` and accepts the following CLI arguments:
 
 ```
-usage: fact_reasoner.py [-h] [--input_file INPUT_FILE] [--output_dir OUTPUT_DIR] [--cache_dir CACHE_DIR] [--dataset_name DATASET_NAME] [--service_type SERVICE_TYPE] [--model MODEL] [--version VERSION] [--top_k TOP_K] [--use_priors] [--text_only] [--nli_prompt_version NLI_PROMPT_VERSION] [--atomizer_prompt_version ATOMIZER_PROMPT_VERSION] [--reviser_prompt_version REVISER_PROMPT_VERSION] [--test] [--bert_nli] [--merlin_path MERLIN_PATH]
+usage: main.py [-h] [--pipeline PIPELINE] [--input_file INPUT_FILE] [--output_dir OUTPUT_DIR] [--cache_dir CACHE_DIR] [--dataset_name DATASET_NAME] [--service_type SERVICE_TYPE] [--model MODEL] [--version VERSION] [--top_k TOP_K] [--use_priors] [--text_only] [--nli_prompt_version NLI_PROMPT_VERSION] [--atomizer_prompt_version ATOMIZER_PROMPT_VERSION] [--reviser_prompt_version REVISER_PROMPT_VERSION] [--test] [--bert_nli] [--merlin_path MERLIN_PATH]
 
 optional arguments:
   -h, --help            show this help message and exit
+  --pipeline PIPELINE
+                        The assessor pipeline (FactReasoner, FactScore, VeriScore, FactVerify)
   --input_file INPUT_FILE
                         Path to the input dataset (jsonl).
   --output_dir OUTPUT_DIR
@@ -94,7 +96,8 @@ optional arguments:
                         Name of the dataset.
   --service_type SERVICE_TYPE
                         Service type (langchain, chromadb, google).
-  --model MODEL         Name of the RITS model used internally
+  --model_id MODEL_ID   Name of the model used internally
+  --backend BACKEND     The model's backend (rits, hf, wx)
   --version VERSION     FactReasoner version: 1, 2 or 3
   --top_k TOP_K         Top k results retrieved as contexts per atom.
   --use_priors          Use the atom and context priors in the factor definition.
@@ -105,8 +108,6 @@ optional arguments:
                         Atomizer prompt version: v1 (original) or v2 (newer)
   --reviser_prompt_version REVISER_PROMPT_VERSION
                         Reviser prompt version: v1 (newer) or v2 (original)
-  --test                Debugging mode.
-  --bert_nli            A BERT model (roberta) is used for NLI extraction.
   --merlin_path MERLIN_PATH
                         Path to the probabilistic inference merlin.
 ```
