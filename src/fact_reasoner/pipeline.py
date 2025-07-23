@@ -21,7 +21,6 @@ import math
 import torch
 import argparse
 import subprocess
-import logging
 import uuid
 import pandas as pd
 
@@ -30,24 +29,22 @@ from pgmpy.factors.discrete import DiscreteFactor
 from pgmpy.readwrite import UAIWriter
 from pgmpy.global_vars import logger
 
-logger.setLevel(logging.WARNING)
-
-from dotenv import load_dotenv
+if not __package__:
+    # Make CLI runnable from source tree with
+    #    python src/package
+    package_source_path = os.path.dirname(os.path.dirname(__file__))
+    sys.path.insert(0, package_source_path)
 
 # Local
 from fact_reasoner.atom_extractor import AtomExtractor
 from fact_reasoner.atom_reviser import AtomReviser
 from fact_reasoner.context_retriever import ContextRetriever
 from fact_reasoner.query_builder import QueryBuilder
-
 from fact_reasoner.context_summarizer import ContextSummarizer
 from fact_reasoner.nli_extractor import NLIExtractor
-
 from fact_reasoner.fact_graph import FactGraph
 from fact_reasoner.fact_utils import Atom, Context, Relation, build_atoms, build_contexts, build_relations
 from fact_reasoner.fact_utils import remove_duplicated_contexts, remove_duplicated_atoms, is_relevant_context, PRIOR_PROB_ATOM, PRIOR_PROB_CONTEXT
-
-from fact_reasoner.utils import RITS_MODELS, DEFAULT_PROMPT_BEGIN, DEFAULT_PROMPT_END
 
 # pgmpy set the root logger to INFO -- changed it to WARNING
 import logging
@@ -795,16 +792,18 @@ class FactReasoner:
 
 
 def test():
-    model = "llama-3.1-70b-instruct"
-    cache_dir = "my_database.db"
+
+    model_id = "llama-3.3-70b-instruct"
+    cache_dir = None # "my_database.db"
+    backend = "rits"
 
     # Create the pipeline modules
+    query_builder = QueryBuilder(model_id=model_id, prompt_version="v1", backend=backend)
     context_retriever = ContextRetriever(service_type="google", top_k=5, cache_dir=cache_dir)
-    context_summarizer = ContextSummarizer(model=model, prompt_version="v1")
-    query_builder = QueryBuilder(model=model, prompt_version="v1")
-    atom_extractor = AtomExtractor(model)
-    atom_reviser = AtomReviser(model)
-    nli_extractor = NLIExtractor(model, prompt_version="v1")
+    context_summarizer = ContextSummarizer(model_id=model_id, prompt_version="v1", backend=backend)
+    atom_extractor = AtomExtractor(model_id=model_id, backend=backend)
+    atom_reviser = AtomReviser(model_id=model_id, backend=backend)
+    nli_extractor = NLIExtractor(model_id=model_id, prompt_version="v1", backend=backend)
 
     # Path to merlin (probabilistic inference engine)
     # TODO: figure out a way to use merlin's python bidings
@@ -826,9 +825,10 @@ def test():
     with open(json_file, "r") as f:
         data = json.load(f)
 
+    # Instantiate the pipeline from a data file
     pipeline.from_dict_with_contexts(data)
 
-    # Build the FactReasoner pipeline
+    # Build the FactReasoner pipeline (FR2 version)
     pipeline.build(
         has_atoms=True,
         has_contexts=True,
@@ -836,15 +836,15 @@ def test():
         remove_duplicates=True,
         contexts_per_atom_only=False,
         rel_atom_context=True, 
-        rel_context_context=True,
+        rel_context_context=False,
         text_only=False
     )
 
+    # Compute the marginals
     results, marginals = pipeline.score()
     print(f"[FactReasoner] Marginals: {marginals}")
     print(f"[FactReasoner] Results: {results}")
     print(f"Done.")
-
 
 if __name__ == "__main__":
 

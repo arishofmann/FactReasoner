@@ -5,16 +5,20 @@ requires = [
 
 [project]
 name = "fact_reasoner"
-dynamic = ["version"]
+version = "0.3.0"
 description = "Factuality Assessment for Foundation Models"
-license = {text = "Apache-2.0"}
+authors = [
+    {name = "Radu Marinescu",email = "radu.marinescu@ie.ibm.com"},
+    {name = "Javier Carnerero Cano",email = "javier.cano@ibm.com"},
+    {name = "Massimiliano Pronesti",email = "massimiliano.pronesti@ibm.com"},
+]license = {text = "Apache-2.0"}
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers=[
     "License :: OSI Approved :: Apache Software License"
 ]
 dependencies = [
-    # TODO: loosen dependencies
+    # TODO: figure out correct versions dependencies
     "accelerate>=0.22.0",
     "datasets>=2.4.0",
     "huggingface-hub",
@@ -61,9 +65,6 @@ dependencies = [
 [tool.setuptools.packages.find]
 exclude = ["tests", "tests.*"]
 namespaces = false
-
-[tool.setuptools_scm]
-version_file = "src/fact_reasoner/version.py"
 
 [project.urls]
 Source = "https://github.com/IBM/FactReasoner"
