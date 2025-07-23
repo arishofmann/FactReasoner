@@ -497,7 +497,7 @@ if __name__ == '__main__':
     retriever = ContextRetriever(
         top_k=5,
         service_type="google",
-        cache_dir=cache_dir,
+        cache_dir=None,
         query_builder=query_builder
     )
     

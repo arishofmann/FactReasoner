@@ -34,7 +34,8 @@ class SearchAPI():
         
         Args:
             cache_dir : str
-                Path to the SQLite database file for caching search results.
+                Path to the SQLite database file for caching search results. If
+                it is None, then the retrieved search results are not cached.
             similarity_threshold : float
                 Minimum similarity score (0-100) for cached results to be considered relevant.
         """
@@ -47,20 +48,22 @@ class SearchAPI():
         self.headers = {'X-API-KEY': self.serper_key,
                         'Content-Type': 'application/json'}
 
-        # Set up database
-        if cache_dir is None:
-            cache_dir = "./db/google_cache.db"
-
-        self.cache_dir = cache_dir
-        self.similarity_threshold = similarity_threshold
-        self._init_db()
+        # Set up database if cache_dir is not None
+        if cache_dir is not None:
+            self.do_caching = True
+            self.cache_dir = cache_dir
+            self.similarity_threshold = similarity_threshold
+            self._init_db()
+        else:
+            self.do_caching = False
 
     def _init_db(self):
         """
         Initialize the SQLite database with FTS5 for full-text search, using 
         WAL mode for better concurrency.
         """
-        
+        assert (self.do_caching is True), f"Caching requires an existing cache dir."
+
         with sqlite3.connect(self.cache_dir) as conn:
             cursor = conn.cursor()
             cursor.execute("PRAGMA journal_mode=WAL;")  # Enable Write-Ahead Logging
@@ -110,18 +113,20 @@ class SearchAPI():
                 The search results in JSON format, either from cache or from the API.
         """
         
-        cache_key = query.strip()
-        cached_response = self._get_from_cache(cache_key)
-        if cached_response:
-            logger.info(f"CACHE HIT! key={cache_key}, q={cached_response['searchParameters']['q']}")
-            return cached_response
+        if self.do_caching:
+            cache_key = query.strip()
+            cached_response = self._get_from_cache(cache_key)
+            if cached_response:
+                logger.info(f"CACHE HIT! key={cache_key}, q={cached_response['searchParameters']['q']}")
+                return cached_response
 
         # Make API request
         payload = json.dumps({"q": query})
         response = requests.request("POST", self.url, params={"num": 15}, headers=self.headers, data=payload)
         response_json = literal_eval(response.text)
         try:
-            self._save_to_cache(cache_key, response_json)
+            if self.do_caching:
+                self._save_to_cache(cache_key, response_json)
         except sqlite3.Error as e:
             logger.error(f"Error saving to cache: {e}. Continuing...")
         return response_json
@@ -196,7 +201,7 @@ class SearchAPI():
 
 if __name__ == '__main__':
     
-    cache_dir = "my_database.db"
+    cache_dir = None # "my_database.db"
 
     text = "Neil B. Todd was an American geneticist"
     # text = "Lanny Flaherty is an American."
