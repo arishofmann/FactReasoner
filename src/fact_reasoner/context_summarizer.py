@@ -16,12 +16,19 @@
 # Context summarization using LLMs
 
 import os
+import sys
 import string
 import numpy as np
 
 from typing import List
 from dotenv import load_dotenv
 from tqdm import tqdm
+
+if not __package__:
+    # Make CLI runnable from source tree with
+    #    python src/package
+    package_source_path = os.path.dirname(os.path.dirname(__file__))
+    sys.path.insert(0, package_source_path)
 
 # Local
 from fact_reasoner.utils import strip_string, extract_first_code_block, dotdict
@@ -34,9 +41,9 @@ class ContextSummarizer:
     """
     def __init__(
             self,
-            model_id: str = "llama-3.1-70b-instruct",
+            model_id: str = "llama-3.3-70b-instruct",
             prompt_version: str = "v1",
-            use_rits: bool = True
+            backend: str = "rits"
     ):
         """
         Initialize the ContextSummarizer.
@@ -46,18 +53,19 @@ class ContextSummarizer:
                 The name/id of the model.
             prompt_version: str
                 The prompt version used. Allowed values are v1.
-            use_rits: bool
-                Whether to use RITS for the model or vLLM.
+            backend: str
+                The model's backend.
         """
         
         self.model_id = model_id
         self.prompt_version = prompt_version
-        self.llm_handler = LLMHandler(model_id, use_rits)
+        self.backend = backend
+        self.llm_handler = LLMHandler(model_id, backend)
 
         self.prompt_begin = self.llm_handler.get_prompt_begin()
         self.prompt_end = self.llm_handler.get_prompt_end()
 
-        print(f"[ContextSummarizer] Using LLM on {use_rits*'RITS'}{(not use_rits)*'vLLM'}: {self.model}")
+        print(f"[ContextSummarizer] Using LLM on {self.backend}: {self.model_id}")
         print(f"[ContextSummarizer] Using prompt version: {self.prompt_version}")
 
     def make_prompt(self, atom: str, context: str):
@@ -242,9 +250,10 @@ class ContextSummarizer:
         
 if __name__ == "__main__":
     
-    model_id = "llama-3.1-70b-instruct"
+    model_id = "llama-3.3-70b-instruct"
     prompt_version = "v1"
-    summarizer = ContextSummarizer(model_id=model_id, prompt_version=prompt_version)
+    backend = "rits"
+    summarizer = ContextSummarizer(model_id=model_id, prompt_version=prompt_version, backend=backend)
 
     atom = "The city council has approved new regulations for electric scooters."
     contexts = ["In the past year, the city had seen a rapid increase in the use of electric scooters. They seemed like a perfect solution to reduce traffic and provide an eco-friendly transportation option. However, problems arose quickly. Riders often ignored traffic laws, riding on sidewalks, and causing accidents. Additionally, the scooters were frequently left haphazardly around public spaces, obstructing pedestrians. City officials were under increasing pressure to act, and after numerous public consultations and debates, the council finally passed new regulations. The new rules included mandatory helmet use, restricted riding areas, and designated parking zones for scooters. The implementation of these regulations was expected to improve safety and the overall experience for both scooter users and pedestrians.",

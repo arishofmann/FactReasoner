@@ -1,4 +1,3 @@
-# The entry-point script
 # coding=utf-8
 # Copyright 2023-present the International Business Machines.
 #
@@ -17,6 +16,7 @@
 # Factuality graph
 
 import json
+from pathlib import Path
 from typing import List
 from tqdm import tqdm
 import networkx as nx
@@ -252,8 +252,9 @@ class FactGraph:
 
 if __name__ == "__main__":
 
-    # file = "/home/radu/git/fm-factual/examples/graph.json"
-    # g = FactGraph()
-    # g.from_json(json_file=file)
-    # g.dump()
+    d = Path(__file__).resolve().parent.parent.parent
+    filename = Path.joinpath(d, "examples", "simple_fg.json")
+    fg = FactGraph()
+    fg.from_json(json_file=filename)
+    fg.dump()
     print(f"Done.")

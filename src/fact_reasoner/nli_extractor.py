@@ -15,6 +15,8 @@
 
 # NLI extractor using LLMs.
 
+import os
+import sys
 import operator
 import numpy as np
 
@@ -22,6 +24,12 @@ from typing import List
 from tqdm import tqdm
 from difflib import SequenceMatcher
 from operator import itemgetter
+
+if not __package__:
+    # Make CLI runnable from source tree with
+    #    python src/package
+    package_source_path = os.path.dirname(os.path.dirname(__file__))
+    sys.path.insert(0, package_source_path)
 
 # Local imports
 from fact_reasoner.llm_handler import LLMHandler
@@ -95,7 +103,7 @@ class NLIExtractor:
             method: str = "logprobs",
             prompt_version: str = "v1",
             debug: bool = False,
-            use_rits: bool = True
+            backend: str = "rits"
     ):
         """
         Initialize the NLIExtractor.
@@ -109,17 +117,17 @@ class NLIExtractor:
                 The version of the prompt to use for NLI extraction.
             debug: bool
                 Whether to enable debug mode (prints additional information).
-            use_rits: bool
-                Whether to use RITS for LLM inference.
+            backend: rits
+                The model's backend (rits, hf or wx).
         """
 
         self.model_id = model_id
         self.method = method
         self.prompt_version = prompt_version
         self.debug = debug
-        self.use_rits = use_rits
+        self.backend = backend
 
-        self.llm_handler = LLMHandler(model_id, use_rits)
+        self.llm_handler = LLMHandler(model_id, backend)
         self.prompt_begin = self.llm_handler.get_prompt_begin()
         self.prompt_end = self.llm_handler.get_prompt_end()
     
@@ -127,7 +135,7 @@ class NLIExtractor:
             raise ValueError(f"Unknown prompt version: {self.prompt_version}. "
                                 f"Supported versions are: 'v1', 'v2', 'v3'.")
 
-        print(f"[NLIExtractor] Using LLM on {use_rits*'RITS'}{(not use_rits)*'vLLM'}: {self.model}")
+        print(f"[NLIExtractor] Using LLM on {self.backend}: {self.model_id}")
         print(f"[NLIExtractor] Prompt version: {self.prompt_version}")
 
     def make_prompt(self, premise: str, hypothesis: str) -> str:
@@ -341,14 +349,15 @@ class NLIExtractor:
 
 if __name__ == "__main__":
 
-    model_id = "llama-3.1-70b-instruct"
+    model_id = "llama-3.3-70b-instruct"
+    backend = "rits"
 
     # Example premise and hypothesis
     premise = "natural born killers is a 1994 american romantic crime action film directed by oliver stone and starring woody harrelson, juliette lewis, robert downey jr., tommy lee jones, and tom sizemore. the film tells the story of two victims of traumatic childhoods who become lovers and mass murderers, and are irresponsibly glorified by the mass media. the film is based on an original screenplay by quentin tarantino that was heavily revised by stone, writer david veloz, and associate producer richard rutowski. tarantino received a story credit though he subsequently disowned the film. jane hamsher, don murphy, and clayton townsend produced the film, with arnon milchan, thom mount, and stone as executive producers. natural born killers was released on august 26, 1994 in the united states, and screened at the venice film festival on august 29, 1994. it was a box office success, grossing $ 110 million against a production budget of $ 34 million, but received polarized reviews. some critics praised the plot, acting, humor, and combination of action and romance, while others found the film overly violent and graphic. notorious for its violent content and inspiring \" copycat \" crimes, the film was named the eighth most controversial film in history by entertainment weekly in 2006. = = plot = = mickey knox and his wife mallory stop at a diner in the new mexico desert. a duo of rednecks arrive and begin sexually harassing mallory as she dances by a jukebox. she initially encourages it before beating one of the men viciously. mickey joins her, and the couple murder everyone in the diner, save one customer, to whom they proudly declare their names before leaving. the couple camp in the desert, and mallory reminisces about how she met mickey, a meat deliveryman who serviced her family ' s household. after a whirlwind romance, mickey is arrested for grand theft auto and sent to prison ; he escapes and returns to mallory ' s home. the couple murders mallory ' s sexually abusive father and neglectful mother, but spare the life of mallory ' s little brother, kevin. the couple then have an unofficial marriage ceremony on a bridge. later, mickey and mallory hold a woman hostage in their hotel room. angered by mickey ' s desire for a threesome, mallory leaves, and mickey rapes the hostage. mallory drives to a nearby gas station, where she flirts with a mechanic. they begin to have sex on the hood of a car, but after mallory suffers a flashback of being raped by her father, and the mechanic recognizes her as a wanted murderer, mallory kills him. the pair continue their killing spree, ultimately claiming 52 victims in new mexico, arizona and nevada. pursuing them is detective jack scagnetti, who became obsessed with mass murderers at the age of eight after having witnessed the murder of his mother at the hand of charles whitman. beneath his heroic facade, he is also a violent psychopath and has murdered prostitutes in his past. following the pair ' s murder spree is self - serving tabloid journalist wayne gale, who profiles them on his show american maniacs, soon elevating them to cult - hero status. mickey and mallory become lost in the desert after taking psychedelic mushrooms, and they stumble upon a ranch owned by warren red cloud, a navajo man who provides them food and shelter. as mickey and mallory sleep, warren, sensing evil in the couple, attempts to exorcise the demon that he perceives in mickey, chanting over him as he sleeps. mickey, who has nightmares of his abusive parents, awakens during the exorcism and shoots warren to death. as the couple flee, they feel inexplicably guilty and come across a giant field of rattlesnakes, where they are badly bitten. they reach a drugstore to purchase snakebite antidote, but the store is sold out. a pharmacist recognizes the couple and triggers an alarm before mickey kills him. police arrive shortly after and accost the couple and a shootout ensues. the police end the showdown by beating the couple while a "
     hypothesis = "Lanny Flaherty has appeared in numerous films."
 
     # Create the extractor
-    extractor = NLIExtractor(model_id=model_id, prompt_version="v2", debug=False)    
+    extractor = NLIExtractor(model_id=model_id, prompt_version="v2", backend=backend)    
     result = extractor.run(premise=premise, hypothesis=hypothesis)
 
     # Output results

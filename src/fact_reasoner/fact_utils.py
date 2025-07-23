@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import sys
 import nltk
 
 from typing import Tuple, Union, List, Optional
@@ -20,7 +22,13 @@ from operator import itemgetter
 from itertools import combinations
 from nltk.tokenize import sent_tokenize
 
-# Local
+if not __package__:
+    # Make CLI runnable from source tree with
+    #    python src/package
+    package_source_path = os.path.dirname(os.path.dirname(__file__))
+    sys.path.insert(0, package_source_path)
+
+# Local imports
 from fact_reasoner.atom_extractor import AtomExtractor
 from fact_reasoner.context_retriever import ContextRetriever
 from fact_reasoner.nli_extractor import NLIExtractor
@@ -334,7 +342,7 @@ def get_nli_relations_prompting(
     ) -> list[Relation]:
         
     assert (nli_scorer is not None), "NLI extractor cannot be None."
-    assert isinstance(nli_scorer, NLIExtractorOld), "NLI extractor must be NLIExtractorOld."
+    # assert isinstance(nli_scorer, NLIExtractorOld), "NLI extractor must be NLIExtractorOld."
 
     premises = [pair[0] if isinstance(pair[0],str) else pair[0].get_text(text_only) for pair in atom_context_pairs]
     hypotheses = [pair[1] if isinstance(pair[1],str) else pair[1].get_text(text_only) for pair in atom_context_pairs]
@@ -610,7 +618,7 @@ def build_relations(
         contexts_per_atom_only: bool = False,
         rel_atom_context: bool = True, 
         rel_context_context: bool = True,
-        nli_extractor: Union[NLIExtractor, NLIExtractorOld] = None,
+        nli_extractor: NLIExtractor = None,
         text_only: bool = True
 ) -> List[Relation]:
     """
@@ -631,7 +639,7 @@ def build_relations(
             Flag indicating the presence of atom-to-context relationships.
         rel_context_context: bool (default is False)
             Flag indicating the presence of context-to-context relationships.
-        nli_extractor: NLIExtractor or NLIExtractorOld
+        nli_extractor: NLIExtractor
             The NLI model used for predicting the relationships.
         text_only: bool
             Flag indicating that contexts are text only. If False, then the
@@ -666,22 +674,13 @@ def build_relations(
                 for context in atom.get_contexts():
                     atom_context_pairs.append((context, atom))
 
-        if isinstance(nli_extractor, NLIExtractorOld):
-            # Get all relationships (NLI-prompt)
-            all_rels = get_nli_relations_prompting(
-                    atom_context_pairs,
-                    nli_scorer=nli_extractor,
-                    links_type="context_atom",
-                    text_only=text_only
-            )
-        else:
-            # Get all relationships (NLI-prompt)
-            all_rels = predict_nli_relationships(
-                atom_context_pairs,
-                nli_extractor=nli_extractor,
-                links_type="context_atom",
-                text_only=text_only
-            )
+        # Get all relationships (NLI-prompt)
+        all_rels = predict_nli_relationships(
+            atom_context_pairs,
+            nli_extractor=nli_extractor,
+            links_type="context_atom",
+            text_only=text_only
+        )
 
         # Filter out the neutral relationships
         for rel in all_rels:
@@ -701,38 +700,21 @@ def build_relations(
             context_context_pairs1.append((context_i, context_j))
             context_context_pairs2.append((context_j, context_i))
 
-        if isinstance(nli_extractor, NLIExtractorOld):
-            # Get relationships (c_i, c_j)
-            relations1 = get_nli_relations_prompting(
-                context_context_pairs1,
-                nli_scorer=nli_extractor,
-                links_type="context_context",
-                text_only=text_only
-            )
+        # Get relationships (c_i, c_j)
+        relations1 = predict_nli_relationships(
+            context_context_pairs1,
+            nli_extractor=nli_extractor,
+            links_type="context_context",
+            text_only=text_only
+        )
 
-            # Get relationships (c_j, c_i)
-            relations2 = get_nli_relations_prompting(
-                context_context_pairs2,
-                nli_scorer=nli_extractor,
-                links_type="context_context",
-                text_only=text_only
-            )
-        else:
-            # Get relationships (c_i, c_j)
-            relations1 = predict_nli_relationships(
-                context_context_pairs1,
-                nli_extractor=nli_extractor,
-                links_type="context_context",
-                text_only=text_only
-            )
-
-            # Get relationships (c_j, c_i)
-            relations2 = predict_nli_relationships(
-                context_context_pairs2,
-                nli_extractor=nli_extractor,
-                links_type="context_context",
-                text_only=text_only
-            )
+        # Get relationships (c_j, c_i)
+        relations2 = predict_nli_relationships(
+            context_context_pairs2,
+            nli_extractor=nli_extractor,
+            links_type="context_context",
+            text_only=text_only
+        )
 
         relations_tmp = [pair[0] if pair[0].get_probability()>pair[1].get_probability() else pair[1] for pair in zip(relations1,relations2)]
         assert len(relations_tmp) == len(relations1) # safety checks
