@@ -491,13 +491,13 @@ def test_langchain():
 if __name__ == '__main__':
 
     query = "Lanny Flaherty has appeared in Law & Order."
-    cache_dir = "my_database.db"
-    query_builder = QueryBuilder(model_id="llama-3.3-70b-instruct", backend="rits")
+    cache_dir = None # "my_database.db"
+    query_builder = None # QueryBuilder(model_id="llama-3.3-70b-instruct", backend="rits")
 
     retriever = ContextRetriever(
         top_k=5,
         service_type="google",
-        cache_dir=None,
+        cache_dir=cache_dir,
         query_builder=query_builder
     )
     
