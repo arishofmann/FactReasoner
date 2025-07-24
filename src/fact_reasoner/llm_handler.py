@@ -175,55 +175,28 @@ class LLMHandler:
         if self.backend == "rits":
             # Ensure we always send a list to batch_completion
             if isinstance(prompts, str):
-                prompts = [prompts]
-            
-            messages = [[dict(role="user", content=prompt)] for prompt in prompts]
-            # return litellm.batch_completion(
-            #     model=self.model_id,
-            #     api_base=self.api_base,
-            #     messages=messages,  # Wrap each prompt
-            #     api_key=self.RITS_API_KEY,
-            #     num_retries=num_retries,
-            #     extra_headers={
-            #         "RITS_API_KEY": self.RITS_API_KEY
-            #     },
-            #     **params
-            # )
-            results = []
-            messages = [[dict(role="user", content=prompt)] for prompt in prompts]
-            for _, response in tqdm(
-                enumerate(
-                    litellm.batch_completion(
-                        model=self.model_id,
-                        api_base=self.api_base,
-                        messages=messages,
-                        logprobs=True,
-                        max_tokens=300,
-                        api_key=self.RITS_API_KEY,
-                        extra_headers={
-                            "RITS_API_KEY": self.RITS_API_KEY,
-                        }
-                    )
-                ),
-                total=len(messages),
-                desc=f"Evaluation",
-                unit="questions",
-                ):
-                    generated_text = response.choices[0].message.content
-                    logprobs = response.choices[0].logprobs['content']
-                    generated_tokens = logprobs[:-1]
-                    logits = []
-                    probability = 0.0
-                    for _, elem in generated_tokens:
-                        elem = dotdict(elem)
-                        logits.append(elem.logprob)
-
-                    if len(logits) > 0:
-                        probability = np.exp(np.mean(logits))
-
-                    results.append(dict(probability=probability, response=generated_text))
-
-            return results
+                return litellm.completion(
+                    model=self.model_id,
+                    api_base=self.api_base,
+                    messages=[{"role": "user", "content": prompts}],  # Wrap prompt for compatibility
+                    api_key=self.RITS_API_KEY,
+                    num_retries=num_retries,
+                    extra_headers={
+                        "RITS_API_KEY": self.RITS_API_KEY
+                    },
+                    **params
+                )
+            return litellm.batch_completion(
+                model=self.model_id,
+                api_base=self.api_base,
+                messages=[[{"role": "user", "content": p}] for p in prompts],  # Wrap each prompt
+                api_key=self.RITS_API_KEY,
+                num_retries=num_retries,
+                extra_headers={
+                    "RITS_API_KEY": self.RITS_API_KEY
+                },
+                **params
+            )
 
         elif self.backend == "hf":
             # Ensure prompts is always a list for vLLM
