@@ -15,8 +15,6 @@
 
 import io
 import re
-import os
-import sys
 import chromadb
 import html2text
 import requests
@@ -33,15 +31,9 @@ from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from pypdf import PdfReader
 
-if not __package__:
-    # Make CLI runnable from source tree with
-    #    python src/package
-    package_source_path = os.path.dirname(os.path.dirname(__file__))
-    sys.path.insert(0, package_source_path)
-
 # Local
-from fact_reasoner.query_builder import QueryBuilder
-from fact_reasoner.search_api import SearchAPI
+from src.fact_reasoner.query_builder import QueryBuilder
+from src.fact_reasoner.search_api import SearchAPI
 
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 NEWLINES_RE = re.compile(r"\n{2,}")  # two or more "\n" characters

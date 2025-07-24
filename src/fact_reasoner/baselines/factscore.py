@@ -17,26 +17,19 @@
 
 import os
 import json
-import sys
 import string
+import argparse
 
 from typing import List
 from tqdm import tqdm
 from dotenv import load_dotenv
 
-if not __package__:
-    # Make CLI runnable from source tree with
-    #    python src/package
-    package_source_path = os.path.dirname(os.path.dirname(__file__))
-    sys.path.insert(0, package_source_path)
-
 # Local imports
-from fact_reasoner.atom_extractor import AtomExtractor
-from fact_reasoner.atom_reviser import AtomReviser
-from fact_reasoner.context_retriever import ContextRetriever
-from fact_reasoner.fact_utils import Atom, Context, build_atoms, build_contexts
-from fact_reasoner.utils import extract_last_square_brackets
-from fact_reasoner.llm_handler import LLMHandler
+from src.fact_reasoner.atom_extractor import AtomExtractor
+from src.fact_reasoner.atom_reviser import AtomReviser
+from src.fact_reasoner.context_retriever import ContextRetriever
+from src.fact_reasoner.fact_utils import Atom, Context, build_atoms, build_contexts
+from src.fact_reasoner.llm_handler import LLMHandler
 
 # Version 1 of the prompt (from the original FactScore paper)
 FACTSCORE_PROMPT = """{_PROMPT_BEGIN_PLACEHOLDER}
@@ -543,10 +536,25 @@ class FactScore:
 
 if __name__ == "__main__":
 
+    # CLI arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--input_file',
+        type=str,
+        default=None,
+        required=True,
+        help="Path to the input test file (json)."
+    )
+
+    # Parse CLI arguments
+    args = parser.parse_args()
+
+    # Define the model and backend
     model_id = "llama-3.3-70b-instruct"
     backend = "rits"
     cache_dir = None # "/home/radu/data/cache"
 
+    # Create the retriever, atomizer and reviser.
     context_retriever = ContextRetriever(service_type="google", top_k=5, cache_dir=cache_dir)
     atom_extractor = AtomExtractor(model_id=model_id, backend=backend)
     atom_reviser = AtomReviser(model_id=model_id, backend=backend)
@@ -562,10 +570,12 @@ if __name__ == "__main__":
     )
 
     # Load the problem instance from a file
-    json_file = "/home/radu/git/fm-factual/examples/test4.json"
+    assert args.input_file is not None, f"Input file cannot be None. Aborting."
+    json_file = args.input_file
     with open(json_file, "r") as f:
         data = json.load(f)
     
+    # Load the file (json)
     pipeline.from_dict_with_contexts(data)
 
     # Build the scorer
@@ -575,6 +585,7 @@ if __name__ == "__main__":
         decontextualize_atoms=False
     )
 
+    # Print the results
     results = pipeline.score()
     print(f"[FactScore] Results: {results}")
     print(f"Done.")

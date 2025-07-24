@@ -15,23 +15,15 @@
 
 # Atomic fact decontextualization using LLMs
 
-import os
-import sys
 import string
 
 from typing import List, Any
 from tqdm import tqdm
 
-if not __package__:
-    # Make CLI runnable from source tree with
-    #    python src/package
-    package_source_path = os.path.dirname(os.path.dirname(__file__))
-    sys.path.insert(0, package_source_path)
-
 # Local imports
-from fact_reasoner.utils import strip_string, extract_first_code_block, extract_last_wrapped_response
-from fact_reasoner.llm_handler import LLMHandler
-from fact_reasoner.prompts import ATOM_REVISER_PROMPT_V1, ATOM_REVISER_PROMPT_V2
+from src.fact_reasoner.utils import strip_string, extract_first_code_block, extract_last_wrapped_response
+from src.fact_reasoner.llm_handler import LLMHandler
+from src.fact_reasoner.prompts import ATOM_REVISER_PROMPT_V1, ATOM_REVISER_PROMPT_V2
 
 class AtomReviser:
     """

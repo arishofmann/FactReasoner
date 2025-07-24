@@ -15,21 +15,18 @@
 
 # Split the input text into atomic facts/claims (LLM based).
 
-import os
-import sys
-
 from typing import Any, List
 from tqdm import tqdm
 
-if not __package__:
-    # Make CLI runnable from source tree with
-    #    python src/package
-    package_source_path = os.path.dirname(os.path.dirname(__file__))
-    sys.path.insert(0, package_source_path)
+# if not __package__:
+#     # Make CLI runnable from source tree with
+#     #    python src/package
+#     package_source_path = os.path.dirname(os.path.dirname(__file__))
+#     sys.path.insert(0, package_source_path)
 
 # Local imports
-from fact_reasoner.prompts import ATOM_EXTRACTION_PROMPT_V1, ATOM_EXTRACTION_PROMPT_V2
-from fact_reasoner.llm_handler import LLMHandler
+from src.fact_reasoner.prompts import ATOM_EXTRACTION_PROMPT_V1, ATOM_EXTRACTION_PROMPT_V2
+from src.fact_reasoner.llm_handler import LLMHandler
 
 _ATOM = 'atom'
 _LABEL = 'label'

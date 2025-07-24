@@ -16,21 +16,12 @@
 import os
 import litellm
 import torch
-import sys
-import numpy as np
 
 from vllm import LLM, SamplingParams
 from dotenv import load_dotenv
-from tqdm import tqdm
-
-if not __package__:
-    # Make CLI runnable from source tree with
-    #    python src/package
-    package_source_path = os.path.dirname(os.path.dirname(__file__))
-    sys.path.insert(0, package_source_path)
 
 # Local imports
-from fact_reasoner.utils import DEFAULT_PROMPT_BEGIN, DEFAULT_PROMPT_END, get_models_config
+from src.fact_reasoner.utils import DEFAULT_PROMPT_BEGIN, DEFAULT_PROMPT_END, get_models_config
 
 GPU = torch.cuda.is_available()
 DEVICE = GPU*"cuda" + (not GPU)*"cpu"

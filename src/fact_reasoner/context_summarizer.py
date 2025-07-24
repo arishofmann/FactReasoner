@@ -15,25 +15,16 @@
 
 # Context summarization using LLMs
 
-import os
-import sys
 import string
 import numpy as np
 
 from typing import List
-from dotenv import load_dotenv
 from tqdm import tqdm
 
-if not __package__:
-    # Make CLI runnable from source tree with
-    #    python src/package
-    package_source_path = os.path.dirname(os.path.dirname(__file__))
-    sys.path.insert(0, package_source_path)
-
 # Local
-from fact_reasoner.utils import strip_string, extract_first_code_block, dotdict
-from fact_reasoner.llm_handler import LLMHandler
-from fact_reasoner.prompts import CONTEXT_SUMMARIZATION_PROMPT_V1
+from src.fact_reasoner.utils import strip_string, extract_first_code_block, dotdict
+from src.fact_reasoner.llm_handler import LLMHandler
+from src.fact_reasoner.prompts import CONTEXT_SUMMARIZATION_PROMPT_V1
 
 class ContextSummarizer:
     """

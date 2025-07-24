@@ -15,8 +15,6 @@
 
 # NLI extractor using LLMs.
 
-import os
-import sys
 import operator
 import numpy as np
 
@@ -25,17 +23,17 @@ from tqdm import tqdm
 from difflib import SequenceMatcher
 from operator import itemgetter
 
-if not __package__:
-    # Make CLI runnable from source tree with
-    #    python src/package
-    package_source_path = os.path.dirname(os.path.dirname(__file__))
-    sys.path.insert(0, package_source_path)
-
 # Local imports
-from fact_reasoner.llm_handler import LLMHandler
-from fact_reasoner.utils import dotdict, extract_last_square_brackets
-from fact_reasoner.prompts import NLI_EXTRACTION_PROMPT_V1, NLI_EXTRACTION_PROMPT_V2, NLI_EXTRACTION_PROMPT_V3, NLI_EXTRACTION_PROMPT_V3_FEW_SHOTS
+from src.fact_reasoner.llm_handler import LLMHandler
+from src.fact_reasoner.utils import dotdict, extract_last_square_brackets
+from src.fact_reasoner.prompts import (
+    NLI_EXTRACTION_PROMPT_V1, 
+    NLI_EXTRACTION_PROMPT_V2, 
+    NLI_EXTRACTION_PROMPT_V3, 
+    NLI_EXTRACTION_PROMPT_V3_FEW_SHOTS
+)
 
+# Define the NLI relationships (labels)
 NLI_LABELS = ['entailment', 'contradiction', 'neutral']
 
 def similarity(a, b):
@@ -214,7 +212,7 @@ class NLIExtractor:
                     token = dotdict(token)
                     logprob_sum +=token.logprob
 
-                probability = np.exp(logprob_sum/len(generated_tokens))
+                probability = float(np.exp(logprob_sum/len(generated_tokens)))
         elif self.prompt_version == "v2":
             label = extract_last_square_brackets(text).lower()
             probability = 1.0
@@ -232,7 +230,7 @@ class NLIExtractor:
                     logits.append(elem.logprob)
 
                 if len(logits) > 0:
-                    probability = np.exp(np.mean(logits))
+                    probability = float(np.exp(np.mean(logits)))
         elif self.prompt_version == "v3":
             label = extract_last_square_brackets(text).lower()
             probability = 1.0
@@ -250,7 +248,7 @@ class NLIExtractor:
                     logits.append(elem.logprob)
 
                 if len(logits) > 0:
-                    probability = np.exp(np.mean(logits))
+                    probability = float(np.exp(np.mean(logits)))
 
                 if label == "supported":
                     label = "entailment"

@@ -15,22 +15,13 @@
 
 # Query builder for atoms to retrieve results from Google and/or Wikipedia
 
-import os
-import sys
-
 from tqdm import tqdm
 from typing import Dict, List
 
-if not __package__:
-    # Make CLI runnable from source tree with
-    #    python src/package
-    package_source_path = os.path.dirname(os.path.dirname(__file__))
-    sys.path.insert(0, package_source_path)
-
 # Local imports
-from fact_reasoner.utils import extract_last_square_brackets
-from fact_reasoner.llm_handler import LLMHandler
-from fact_reasoner.prompts import QUERY_BUILDER_PROMPT_V1, QUERY_BUILDER_PROMPT_V2
+from src.fact_reasoner.utils import extract_last_square_brackets
+from src.fact_reasoner.llm_handler import LLMHandler
+from src.fact_reasoner.prompts import QUERY_BUILDER_PROMPT_V1, QUERY_BUILDER_PROMPT_V2
 
 class QueryBuilder:
     """

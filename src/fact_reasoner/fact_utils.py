@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import sys
 import nltk
 
 from typing import Tuple, Union, List, Optional
@@ -22,17 +20,11 @@ from operator import itemgetter
 from itertools import combinations
 from nltk.tokenize import sent_tokenize
 
-if not __package__:
-    # Make CLI runnable from source tree with
-    #    python src/package
-    package_source_path = os.path.dirname(os.path.dirname(__file__))
-    sys.path.insert(0, package_source_path)
-
 # Local imports
-from fact_reasoner.atom_extractor import AtomExtractor
-from fact_reasoner.context_retriever import ContextRetriever
-from fact_reasoner.nli_extractor import NLIExtractor
-from fact_reasoner.utils import punctuation_only_inside_quotes
+from src.fact_reasoner.atom_extractor import AtomExtractor
+from src.fact_reasoner.context_retriever import ContextRetriever
+from src.fact_reasoner.nli_extractor import NLIExtractor
+from src.fact_reasoner.utils import punctuation_only_inside_quotes
 
 # Defaut prior probabilities for atoms and contexts
 PRIOR_PROB_ATOM = 0.5
