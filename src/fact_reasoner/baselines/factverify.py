@@ -18,29 +18,19 @@
  
 import os
 import json
-import sys
 import argparse
-import torch
-import litellm
-import pandas as pd
 
 from typing import List
 from tqdm import tqdm
 from dotenv import load_dotenv
 
-if not __package__:
-    # Make CLI runnable from source tree with
-    #    python src/package
-    package_source_path = os.path.dirname(os.path.dirname(__file__))
-    sys.path.insert(0, package_source_path)
-
 # Local imports
-from fact_reasoner.atom_extractor import AtomExtractor
-from fact_reasoner.atom_reviser import AtomReviser
-from fact_reasoner.context_retriever import ContextRetriever
-from fact_reasoner.fact_utils import Atom, Context, build_atoms, build_contexts
-from fact_reasoner.utils import extract_last_wrapped_response
-from fact_reasoner.llm_handler import LLMHandler
+from src.fact_reasoner.atom_extractor import AtomExtractor
+from src.fact_reasoner.atom_reviser import AtomReviser
+from src.fact_reasoner.context_retriever import ContextRetriever
+from src.fact_reasoner.fact_utils import Atom, Context, build_atoms, build_contexts
+from src.fact_reasoner.utils import extract_last_wrapped_response
+from src.fact_reasoner.llm_handler import LLMHandler
 
 FEW_SHOTS = [
     {"claim": "Characters Lenny and Carl on The Simpsons are hearing but are depicted as close friends of the Simpsons family.", "search_result": "Search result 1\nTitle: Character Spotlight: Lenny Leonard and Carl Carlson (& Barflies)\nContent: Their friendship is a pretty singular aspect on the show -- save Bart and Milhouse (or to some degree, Mr. Burns and Smithers) -- they always ...\nLink: https://nohomers.net/forums/index.php?threads/character-spotlight-lenny-leonard-and-carl-carlson-barflies.23798/\n\nSearch result 2\nTitle: The Simpsons: Lenny and Carl's History, Explained - CBR\nContent: Introduced in the show's first season, the pair were portrayed as background characters at Homer's work, usually appearing together in minor ...\nLink: https://www.cbr.com/the-simpsons-lenny-carl-history-explained/\n\nSearch result 3\nTitle: Are Lennie and Carl Homer Simpson's real or fake friends? - Quora\nContent: Lenni is a pal, Carl doesn't consider any of them to be 'friends' they're just shallow guys he hangs out with. Lenny and Carl have a special ...\nLink: https://www.quora.com/Are-Lennie-and-Carl-Homer-Simpson-s-real-or-fake-friends\n\nSearch result 4\nTitle: [The Simpsons] Lenny and Carl aren't ambiguously gay (originally)\nContent: Theory: Lenny and Carl started out as a parody of background characters who always appear as a pair: Crabbe and Goyle or Fred and George in \" ...\nLink: https://www.reddit.com/r/FanTheories/comments/yw7bp4/the_simpsons_lenny_and_carl_arent_ambiguously_gay/\n\nSearch result 5\nTitle: Lenny Leonard | Simpsons Wiki | Fandom\nContent: He is the best friend of Carl Carlson and, along with Carl, second best friend of Homer Simpson, behind Barney Gumble and Moe Syzslak.\nLink: https://simpsons.fandom.com/wiki/Lenny_Leonard\n\nSearch result 6\nTitle: Are Simpsons' Carl & Lenny Gay? Every Clue To Their Relationship\nContent: One of The Simpsons' many mysteries is Lenny and Carl's relationship, as it has been hinted that the two are more than just best friends.\nLink: https://screenrant.com/simpsons-shows-carl-lenny-gay-couple-clues-hints/\n\nSearch result 7\nTitle: Lenny Leonard - Wikisimpsons, the Simpsons Wiki\nContent: Lenford \"Lenny\" Leonard is the best friend of Carl Carlson and, along with Carl, second best friend of Homer Simpson, behind Barney Gumble.\nLink: https://simpsonswiki.com/wiki/Lenny_Leonard\n\nSearch result 8\nTitle: Lenny | The Simpsons: Tapped Out Wiki | Fandom\nContent: Lenford \"Lenny\" Leonard MPhs (born 1960) is the best friend of Carl Carlson and, along with Carl, second best friend of Homer Simpson, behind Barney Gumble.\nLink: https://simpsonstappedout.fandom.com/wiki/Lenny\n\nSearch result 9\nTitle: The Simpsons - Wikipedia\nContent: Developed by Groening, James L. Brooks, and Sam Simon, the series is a satirical depiction of American life, epitomized by the Simpson family, which consists of ...\nLink: https://en.wikipedia.org/wiki/The_Simpsons\n\nSearch result 10\nTitle: Lenny Leonard & Carl Carlson - Friends or Couple? | The Simpsons\nContent: Embark on an Epic Friendship Adventure: Lenny Leonard and Carl Carlson from The Simpsons ...\nLink: https://www.youtube.com/watch?v=qY5hjalUhfA", "human_label": "Inconclusive"},
@@ -164,6 +154,7 @@ class FactVerify:
         self.query = None
         self.response = None
         self.topic = None
+        self.binary_output = False # we have a 3-label output
         
         self.model_id = model_id
         self.backend = backend
@@ -202,8 +193,6 @@ class FactVerify:
 
         self.query = data["input"]
         self.response = data["output"]
-        if self.add_topic:
-            self.topic = data["topic"]
         
         print(f"[FactVerify] Reading the human annotated atoms ...")                
         gold_labels = []
@@ -418,7 +407,7 @@ class FactVerify:
             atom_ids.append(aid)
             contexts = atom.get_contexts()
             if contexts is not None and len(contexts) > 0:
-                search_results = [dict(title=c.get_title(), snippet=c.get_snippet(), link=c.get_link()) for c in contexts]
+                search_results = [dict(title=c.get_title(), snippet=c.get_snippet(), link=c.get_link()) for _, c in contexts.items()]
             else:
                 search_results = [] # no search results retrieved for the atom
 
@@ -574,6 +563,20 @@ class FactVerify:
 
 if __name__ == "__main__":
 
+    # CLI arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--input_file',
+        type=str,
+        default=None,
+        required=True,
+        help="Path to the input test file (json)."
+    )
+
+    # Parse CLI arguments
+    args = parser.parse_args()
+
+    # Define the model and backend
     model_id = "llama-3.3-70b-instruct"
     backend = "rits"
 

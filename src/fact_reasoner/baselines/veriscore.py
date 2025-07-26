@@ -21,8 +21,7 @@
 import os
 import json
 import sys
-
-# litellm.set_verbose = True
+import argparse
 
 from typing import List
 from tqdm import tqdm
@@ -35,12 +34,12 @@ if not __package__:
     sys.path.insert(0, package_source_path)
 
 # Local imports
-from fact_reasoner.atom_extractor import AtomExtractor
-from fact_reasoner.atom_reviser import AtomReviser
-from fact_reasoner.context_retriever import ContextRetriever
-from fact_reasoner.fact_utils import Atom, Context, build_atoms, build_contexts
-from fact_reasoner.utils import extract_last_square_brackets
-from fact_reasoner.llm_handler import LLMHandler
+from src.fact_reasoner.atom_extractor import AtomExtractor
+from src.fact_reasoner.atom_reviser import AtomReviser
+from src.fact_reasoner.context_retriever import ContextRetriever
+from src.fact_reasoner.fact_utils import Atom, Context, build_atoms, build_contexts
+from src.fact_reasoner.utils import extract_last_square_brackets
+from src.fact_reasoner.llm_handler import LLMHandler
 
 # Version 2 of the prompt (based on more recent work VeriScore, FactBench)
 VERISCORE_PROMPT = """{_PROMPT_BEGIN_PLACEHOLDER}
@@ -387,7 +386,7 @@ class VeriScore:
             contexts = atom.get_contexts()
             if contexts is not None and len(contexts) > 0:
                 passages = []
-                for c in contexts:
+                for cid, c in contexts.items():
                     if len(c.get_text()) == 0:
                         passages.append(dict(title=c.get_title(), text=c.get_snippet()))
                     else:
@@ -548,7 +547,21 @@ class VeriScore:
 
 if __name__ == "__main__":
 
-    model_id = "granite-3.1-8b-instruct"
+    # CLI arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--input_file',
+        type=str,
+        default=None,
+        required=True,
+        help="Path to the input test file (json)."
+    )
+
+    # Parse CLI arguments
+    args = parser.parse_args()
+
+    # Define the model and backend
+    model_id = "llama-3.3-70b-instruct"
     backend = "rits"
     cache_dir = None # "/home/radu/data/cache"
 
@@ -567,10 +580,12 @@ if __name__ == "__main__":
     )
 
     # Load the problem instance from a file
-    json_file = "/home/radu/git/fm-factual/examples/test.json"
+    assert args.input_file is not None, f"Input file cannot be None. Aborting."
+    json_file = args.input_file
     with open(json_file, "r") as f:
         data = json.load(f)
     
+    print(f"[VeriScore] Initializing pipeline from: {json_file}")
     pipeline.from_dict_with_contexts(data)
 
     # Build the scorer
