@@ -15,9 +15,36 @@
 
 # Main runner script
 
+import os
+import json
 import argparse
+import pandas as pd
 
+# Local imports
 from src.fact_reasoner.factreasoner import FactReasoner
+from src.fact_reasoner.baselines.factscore import FactScore
+from src.fact_reasoner.baselines.factverify import FactVerify
+from src.fact_reasoner.baselines.veriscore import VeriScore
+from src.fact_reasoner.atom_extractor import AtomExtractor
+from src.fact_reasoner.atom_reviser import AtomReviser
+from src.fact_reasoner.context_retriever import ContextRetriever
+from src.fact_reasoner.query_builder import QueryBuilder
+from src.fact_reasoner.context_summarizer import ContextSummarizer
+from src.fact_reasoner.nli_extractor import NLIExtractor
+from src.fact_reasoner.fact_graph import FactGraph
+from src.fact_reasoner.fact_utils import (
+    Atom, 
+    Context, 
+    Relation, 
+    build_atoms, 
+    build_contexts, 
+    build_relations,
+    remove_duplicated_contexts, 
+    remove_duplicated_atoms, 
+    is_relevant_context, 
+    PRIOR_PROB_ATOM, 
+    PRIOR_PROB_CONTEXT
+)
 
 if __name__ == "__main__":
 
@@ -61,7 +88,7 @@ if __name__ == "__main__":
         '--model_id',
         type=str,
         default=None,
-        help="Name of the model used internally"
+        help="Name of the model used by the pipeline."
     )
 
     parser.add_argument(
@@ -74,7 +101,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--backend",
         type=str,
-        default="rits"
+        default="rits",
         help="The model's backend (rits, hf, wx)"
     )
 
@@ -128,17 +155,10 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        '--test', 
-        default=False, 
-        action='store_true', 
-        help="Debugging mode."
-    )
-
-    parser.add_argument(
         '--merlin_path',
         type=str,
         default="/home/radu/git/fm-factual/lib/merlin",
-        help="Path to the probabilistic inference merlin."
+        help="Path to the probabilistic inference engine merlin."
     )
 
     args = parser.parse_args()
@@ -162,41 +182,40 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"Unknown FactReasoner version: {args.version}")
 
-    # Get the NLI prompt version
-    nli_prompt_version = args.nli_prompt_version
+    # Create the atom extractor
+    atom_extractor = AtomExtractor(
+        model_id=args.model_id, 
+        prompt_version=args.atomizer_prompt_version,
+        backend=args.backend
+    )
+    
+    # Create the atom reviser
+    atom_reviser = AtomReviser(
+        model_id=args.model_id, 
+        prompt_version=args.reviser_prompt_version,
+        backend=args.backend
+    )
+
+    # Create the NLI extractor
+    nli_extractor = NLIExtractor(
+        model_id=args.model_id, 
+        prompt_version=args.nli_prompt_version, 
+        backend=args.backend
+    )
+
+    # Create the Query Builder
+    if args.use_query_builder:
+        query_builder = QueryBuilder(model_id=args.model_id, backend=args.backend)
+    else:
+        query_builder = None
 
     # Create context retriever
     context_retriever = ContextRetriever(
         service_type=args.service_type, 
         top_k=args.top_k, 
-        cache_dir=args.cache_dir
+        cache_dir=args.cache_dir,
+        query_builder=query_builder
     )
-
-    # Create the atom extractor
-    atom_extractor = AtomExtractor(
-        model=args.model, 
-        prompt_version=args.atomizer_prompt_version
-    )
-    
-    # Create the atom reviser
-    atom_reviser = AtomReviser(
-        model=args.model, 
-        prompt_version=args.reviser_prompt_version
-    )
-
-    # Create the NLI extractor
-    if not args.bert_nli:
-        nli_extractor = NLIExtractor(model=args.model, prompt_version=nli_prompt_version)
-        nli_model_name = args.model
-    else:  # BERT based NLI extraction
-        nli_extractor = NLIExtractor(model="roberta", is_bert=True)
-        nli_model_name = "roberta"
-
-    # Create the query builder
-    if args.use_query_builder:
-        query_builder = QueryBuilder(model=args.model)
-    else:
-        query_builder = None
 
     print(f"[FactReasoner] Processing input dataset: {args.input_file}")
     filename = args.input_file  # a jsonl file
@@ -212,14 +231,22 @@ if __name__ == "__main__":
     print(f"[FactReasoner] Loading data from: {filename}")
     print(f"[FactReasoner] Found {len(dataset)} elements")
 
+    if args.pipeline in ["factscore", "factverify", "veriscore"]:
+        pipeline_name = args.pipeline
+    elif args.pipeline == "factreasoner":
+        pipeline_name = f"{args.pipeline}{args.version}"
+    else:
+        raise ValueError(f"Unknown pipeline: {args.pipeline}. Aborting.")
+
     # Check if previous results exist. If yes, load them and skip over them
     # when processing the input dataset.
-    filename = "eval_results_factreasoner{}_{}_{}_{}.jsonl".format(
-        option,
+    filename = "eval_results_{}_{}_{}_{}.jsonl".format(
+        pipeline_name,
         args.service_type,
         args.dataset_name,
-        nli_model_name
+        args.model_id
     )
+
     output_filename = os.path.join(args.output_dir, filename)
     print(f"[FactReasoner] Reading previous results from: {output_filename}")
     evaluation_data = []

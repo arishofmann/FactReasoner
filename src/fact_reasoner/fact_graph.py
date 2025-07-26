@@ -253,7 +253,7 @@ class FactGraph:
 if __name__ == "__main__":
 
     d = Path(__file__).resolve().parent.parent.parent
-    filename = Path.joinpath(d, "examples", "simple_fg.json")
+    filename = Path.joinpath(d, "examples", "simple.json")
     fg = FactGraph()
     fg.from_json(json_file=filename)
     fg.dump()

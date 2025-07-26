@@ -15,14 +15,12 @@
 
 # FactReasoner pipeline
 
-import sys
 import os
 import json
 import math
 import argparse
 import subprocess
 import uuid
-import pandas as pd
 import logging
 
 from pgmpy.models import MarkovNetwork
@@ -30,7 +28,7 @@ from pgmpy.factors.discrete import DiscreteFactor
 from pgmpy.readwrite import UAIWriter
 from pgmpy.global_vars import logger
 
-# Local
+# Local imports
 from src.fact_reasoner.atom_extractor import AtomExtractor
 from src.fact_reasoner.atom_reviser import AtomReviser
 from src.fact_reasoner.context_retriever import ContextRetriever
@@ -796,6 +794,28 @@ class FactReasoner:
 
 if __name__ == "__main__":
 
+    # CLI arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--input_file',
+        type=str,
+        default=None,
+        required=True,
+        help="Path to the input test file (json)."
+    )
+
+    parser.add_argument(
+        '--merlin_path',
+        type=str,
+        default=None,
+        required=True,
+        help="Path to the probabilistic inference engine merlin."
+    )
+
+    # Parse CLI arguments
+    args = parser.parse_args()
+
+    # Define the model and backend
     model_id = "llama-3.3-70b-instruct"
     cache_dir = None # "my_database.db"
     backend = "rits"
@@ -809,8 +829,8 @@ if __name__ == "__main__":
     nli_extractor = NLIExtractor(model_id=model_id, prompt_version="v1", backend=backend)
 
     # Path to merlin (probabilistic inference engine)
-    # TODO: figure out a way to use merlin's python bidings
-    merlin_path = "/home/radu/git/fm-factual/lib/merlin"
+    assert args.merlin_path is not None, f"Path to merlin cannot be None. Aborting."
+    merlin_path = args.merlin_path
 
     # Create the FactReasoner pipeline
     pipeline = FactReasoner(
@@ -824,7 +844,8 @@ if __name__ == "__main__":
     )
 
     # Load the problem instance from a file
-    json_file = "/home/radu/git/fm-factual/examples/test.json"
+    assert args.input_file is not None, f"Path to the input file cannot be None. Aborting."
+    json_file = args.input_file
     with open(json_file, "r") as f:
         data = json.load(f)
 
