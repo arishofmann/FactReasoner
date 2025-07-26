@@ -373,7 +373,7 @@ class FactScore:
             contexts = atom.get_contexts()
             if contexts is not None and len(contexts) > 0:
                 passages = []
-                for c in contexts:
+                for cid, c in contexts.items():
                     if len(c.get_text()) == 0:
                         passages.append(dict(title=c.get_title(), text=c.get_snippet()))
                     else:
@@ -576,6 +576,7 @@ if __name__ == "__main__":
         data = json.load(f)
     
     # Load the file (json)
+    print(f"[FactScore] Initializing pipeline from: {json_file}")
     pipeline.from_dict_with_contexts(data)
 
     # Build the scorer
