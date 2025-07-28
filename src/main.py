@@ -92,9 +92,17 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        '--pipeline',
+        type=str,
+        default="factreasoner",
+        required=True,
+        help="Factuality pipeline (factreasoner, factscore, veriscore, factverify)."
+    )
+
+    parser.add_argument(
         '--version',
         type=int,
-        default=1,
+        default=2,
         help="FactReasoner version: 1, 2 or 3"
     )
 
@@ -161,6 +169,7 @@ if __name__ == "__main__":
         help="Path to the probabilistic inference engine merlin."
     )
 
+    # Parse the CLI arguments
     args = parser.parse_args()
 
     # FactReasoner versions:
@@ -217,7 +226,7 @@ if __name__ == "__main__":
         query_builder=query_builder
     )
 
-    print(f"[FactReasoner] Processing input dataset: {args.input_file}")
+    print(f"Processing input dataset: {args.input_file}")
     filename = args.input_file  # a jsonl file
 
     with open(filename) as f:
@@ -228,8 +237,8 @@ if __name__ == "__main__":
     df = pd.json_normalize(df_inter['json_element'].apply(json.loads))
     dataset = df.to_dict('records')
 
-    print(f"[FactReasoner] Loading data from: {filename}")
-    print(f"[FactReasoner] Found {len(dataset)} elements")
+    print(f"Loading data from: {filename}")
+    print(f"Found {len(dataset)} elements")
 
     if args.pipeline in ["factscore", "factverify", "veriscore"]:
         pipeline_name = args.pipeline
@@ -248,7 +257,7 @@ if __name__ == "__main__":
     )
 
     output_filename = os.path.join(args.output_dir, filename)
-    print(f"[FactReasoner] Reading previous results from: {output_filename}")
+    print(f"Reading previous results from: {output_filename}")
     evaluation_data = []
     if os.path.isfile(output_filename):
         with open(output_filename, "r") as f:
@@ -256,7 +265,8 @@ if __name__ == "__main__":
             for line in lines:
                 evaluation_data.append(json.loads(line))
 
-    print(f"[FactReasoner] Found {len(evaluation_data)} existing evaluations data.")
+    print(f"Found {len(evaluation_data)} existing evaluations data.")
+    print(f"Using factuality pipeline: {pipeline_name}")
 
     # Loop over the data points in the dataset
     for input_data in dataset:
@@ -268,19 +278,48 @@ if __name__ == "__main__":
                 break
         if processed:
             prompt = input_data["input"]
-            print(f"[FactReasoner] Input: {prompt} already processed.")
+            print(f"Input: {prompt} already processed.")
             continue
 
         # Process the data point with the FactReasoner pipeline
-        pipeline = FactReasoner(
-            context_retriever=context_retriever,
-            atom_extractor=atom_extractor,
-            atom_reviser=atom_reviser,
-            nli_extractor=nli_extractor,
-            query_builder=query_builder,
-            merlin_path=args.merlin_path,
-            use_priors=args.use_priors
-        )
+        if args.pipeline == "factreasoner":
+            pipeline = FactReasoner(
+                context_retriever=context_retriever,
+                atom_extractor=atom_extractor,
+                atom_reviser=atom_reviser,
+                nli_extractor=nli_extractor,
+                query_builder=query_builder,
+                merlin_path=args.merlin_path,
+                use_priors=args.use_priors
+            )
+        elif args.pipeline == "factscore":
+            pipeline = FactScore(
+                context_retriever=context_retriever,
+                atom_extractor=atom_extractor,
+                atom_reviser=atom_reviser,
+                model_id=args.model_id,
+                debug_mode=False,
+                add_topic=True,
+                backend=args.backend
+            )
+        elif args.pipeline == "veriscore":
+            pipeline = VeriScore(
+                context_retriever=context_retriever,
+                atom_extractor=atom_extractor,
+                atom_reviser=atom_reviser,
+                model_id=args.model_id,
+                debug_mode=False,
+                binary_output=False,
+                backend=args.backend
+            )
+        elif args.pipeline == "factverify":
+            pipeline = FactVerify(
+                context_retriever=context_retriever,
+                atom_extractor=atom_extractor,
+                atom_reviser=atom_reviser,
+                model_id=args.model_id,
+                backend=args.backend
+            )
 
         # Load the problem instance from a file or dict
         ok = pipeline.from_dict_with_contexts(input_data)
@@ -288,32 +327,69 @@ if __name__ == "__main__":
             continue  # annotations are null (ignore)
 
         # Build the FactReasoner pipeline
-        pipeline.build(
-            remove_duplicates=remove_duplicates,
-            contexts_per_atom_only=contexts_per_atom_only,
-            has_atoms=True,
-            has_contexts=True,
-            revise_atoms=False,
-            rel_atom_context=True,
-            rel_context_context=rel_context_context,
-            text_only=args.text_only
-        )
+        if args.pipeline == "factreasoner":
+            pipeline.build(
+                remove_duplicates=remove_duplicates,
+                contexts_per_atom_only=contexts_per_atom_only,
+                has_atoms=True,
+                has_contexts=True,
+                revise_atoms=False,
+                rel_atom_context=True,
+                rel_context_context=rel_context_context,
+                text_only=args.text_only
+            )
 
-        results, marginals = pipeline.score()
-        results["model_name"] = args.model
-        evaluation_data.append(results)
-        print(f"[FactReasoner] Marginals: {marginals}")
-        print(f"[FactReasoner] Results: {results}")
+            results, marginals = pipeline.score()
+            results["model_name"] = args.model_id
+            evaluation_data.append(results)
+            print(f"[FactReasoner] Marginals: {marginals}")
+            print(f"[FactReasoner] Results: {results}")
+        elif args.pipeline == "factscore":
+            pipeline.build(
+                has_atoms=True,
+                has_contexts=True,
+                decontextualize_atoms=False
+            )
+
+            # Print the results
+            results = pipeline.score()
+            results["model_name"] = args.model_id
+            evaluation_data.append(results)
+            print(f"[FactScore] Results: {results}")
+        elif args.pipeline == "veriscore":
+            pipeline.build(
+                has_atoms=True,
+                has_contexts=True,
+                decontextualize_atoms=False
+            )
+
+            # Print the results
+            results = pipeline.score()
+            results["model_name"] = args.model_id
+            evaluation_data.append(results)
+            print(f"[VeriScore] Results: {results}")
+        elif args.pipeline == "factverify":
+            pipeline.build(
+                has_atoms=True,
+                has_contexts=True,
+                decontextualize_atoms=False
+            )
+
+            # Print the results
+            results = pipeline.score()
+            results["model_name"] = args.model_id
+            evaluation_data.append(results)
+            print(f"[FactVerify] Results: {results}")
 
         # Save results to a file
-        filename = "eval_results_factreasoner{}_{}_{}_{}.jsonl".format(
-            option,
+        filename = "eval_results_{}_{}_{}_{}.jsonl".format(
+            pipeline_name,
             args.service_type,
             args.dataset_name,
-            nli_model_name
+            args.model_id
         )
         output_filename = os.path.join(args.output_dir, filename)
-        print(f"[FactReasoner] Writing results to: {output_filename}")
+        print(f"Writing results to: {output_filename}")
         with open(output_filename, "w") as f:
             for res in evaluation_data:
                 f.write(f"{json.dumps(res)}\n")
