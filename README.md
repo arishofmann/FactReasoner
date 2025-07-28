@@ -85,7 +85,7 @@ usage: main.py [-h] [--pipeline PIPELINE] [--input_file INPUT_FILE] [--output_di
 optional arguments:
   -h, --help            show this help message and exit
   --pipeline PIPELINE
-                        The assessor pipeline (FactReasoner, FactScore, VeriScore, FactVerify)
+                        The assessor pipeline (factreasoner, factscore, veriscore, factverify)
   --input_file INPUT_FILE
                         Path to the input dataset (jsonl).
   --output_dir OUTPUT_DIR
