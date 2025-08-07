@@ -17,7 +17,11 @@ import os
 import litellm
 import torch
 
-from vllm import LLM, SamplingParams
+try:
+    from vllm import LLM, SamplingParams
+    VLLM_AVAILABLE = True
+except ImportError:
+    VLLM_AVAILABLE = False
 from dotenv import load_dotenv
 
 # Local imports
@@ -61,6 +65,11 @@ class LLMHandler:
         
         self.models_config = get_models_config()
         if self.backend == "hf":
+            if not VLLM_AVAILABLE:
+                raise ImportError(
+                    "vLLM is required for local model inference but is not installed. "
+                    "Please install it with: pip install vllm"
+                )
             self.HF_model_info = self.models_config["HF_MODELS"][model_id]
             self.model_id = self.HF_model_info.get("model_id", None)
             assert self.model_id is not None
