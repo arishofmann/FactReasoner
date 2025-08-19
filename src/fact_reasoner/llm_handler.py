@@ -73,7 +73,7 @@ class LLMHandler:
             self.HF_model_info = self.models_config["HF_MODELS"][model_id]
             self.model_id = self.HF_model_info.get("model_id", None)
             assert self.model_id is not None
-            print(f"Loading local model with vLLM: {self.model_id}...")
+            # Local model loading message removed
             self.llm = LLM(model=self.model_id, device=DEVICE, dtype=dtype)  # Load model using vLLM
         elif self.backend == "rits":
 
@@ -96,10 +96,8 @@ class LLMHandler:
                 and self.api_base is not None \
                 and self.model_id is not None
             
-            print(f"[LLMHandler] Using API key: {self.RITS_API_KEY}")
-            print(f"[LLMHandler] Using model id: {self.model_id}")
-            print(f"[LLMHandler] Using model info: {self.rits_model_info}")
-            print(f"[LLMHandler] Initialization completed.")
+            # API key and model info logging removed for cleaner output
+            pass
 
         elif self.backend == "wx":
             raise ValueError(f"WatsonX backend is not supported yet.")

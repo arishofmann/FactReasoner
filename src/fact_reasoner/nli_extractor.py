@@ -133,8 +133,7 @@ class NLIExtractor:
             raise ValueError(f"Unknown prompt version: {self.prompt_version}. "
                                 f"Supported versions are: 'v1', 'v2', 'v3'.")
 
-        print(f"[NLIExtractor] Using LLM on {self.backend}: {self.model_id}")
-        print(f"[NLIExtractor] Prompt version: {self.prompt_version}")
+        # NLIExtractor initialization messages removed
 
     def make_prompt(self, premise: str, hypothesis: str) -> str:
         """
@@ -285,7 +284,7 @@ class NLIExtractor:
         """
         
         prompt = self.make_prompt(premise, hypothesis)
-        print(f"[NLIExtractor] Prompt created ({len(prompt)}).")
+        # Prompt creation message removed
         response = self.llm_handler.completion(
             prompt,
             logprobs=True
@@ -293,7 +292,8 @@ class NLIExtractor:
 
         text = response.choices[0].message.content
         if self.debug:
-            print(f"Generate response:\n{text}")
+            # Generated response output removed
+            pass
         logprobs = response.choices[0].logprobs['content']
         label, probability = self.extract_relationship(text, logprobs)
         result = {'label': label, 'probability': probability}
@@ -320,7 +320,7 @@ class NLIExtractor:
         generated_texts = []
         generated_logprobs = []
         prompts = [self.make_prompt(premise, hypothesis) for premise, hypothesis in zip(premises, hypotheses)]
-        print(f"[NLIExtractor] Prompts created: {len(prompts)}")
+        # Prompts created message removed
 
         for _, response in tqdm(
             enumerate(

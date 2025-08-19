@@ -57,8 +57,7 @@ class AtomReviser:
         self.prompt_begin = self.llm_handler.get_prompt_begin()
         self.prompt_end = self.llm_handler.get_prompt_end()
             
-        print(f"[AtomReviser] Using LLM on {self.backend}: {self.model_id}")
-        print(f"[AtomReviser] Using prompt version: {self.prompt_version}")
+        # AtomReviser initialization messages removed
 
     def make_prompt(self, unit: str, response: str):
         """
@@ -109,7 +108,7 @@ class AtomReviser:
         
         results = []
         prompts = [self.make_prompt(atom, response) for atom in atoms]
-        print(f"[AtomReviser] Prompts created: {len(prompts)}")
+        # Prompts created message removed
 
         for _, response in tqdm(
             enumerate(
@@ -160,7 +159,7 @@ class AtomReviser:
         n = len(responses)
         results = []
         prompts = [self.make_prompt(atom, response) for i, response in enumerate(responses) for atom in atoms[i]]
-        print(f"[AtomReviser] Prompts created: {len(prompts)}")
+        # Prompts created message removed
 
         for _, response in tqdm(
             enumerate(
@@ -224,7 +223,7 @@ if __name__ == "__main__":
     for elem in results:
         orig_atom = elem["atom"]
         revised_atom = elem["revised_atom"]
-        print(f"{orig_atom} --> {revised_atom}")
+        # Atom revision message removed
 
     responses = [
         "Gerhard Fischer is an inventor and entrepreneur who is best known \
@@ -275,7 +274,7 @@ if __name__ == "__main__":
         for elem in result:
             orig_atom = elem["atom"]
             revised_atom = elem["revised_atom"]
-            print(f"{orig_atom} --> {revised_atom}")
+            # Atom revision message removed
 
 
     print("Done.")

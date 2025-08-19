@@ -141,8 +141,7 @@ class AtomExtractor(object):
         self.prompt_begin = self.llm_handler.get_prompt_begin()
         self.prompt_end = self.llm_handler.get_prompt_end()
         
-        print(f"[AtomExtractor] Using LLM on {self.backend}: {self.model_id}")
-        print(f"[AtomExtractor] Using prompt version: {self.prompt_version}")
+        # AtomExtractor initialization messages removed
 
     def make_prompt(self, response: str) -> str:
         """
@@ -186,7 +185,7 @@ class AtomExtractor(object):
             List[str]: A list of labels corresponding to the atomic units.
         """
 
-        print(f"[AtomExtractor] Prompts created: 1")
+        # Prompts created message removed
         prompt = self.make_prompt(response)
         response = self.llm_handler.completion(prompt)
         output = response.choices[0].message.content
@@ -208,7 +207,7 @@ class AtomExtractor(object):
 
         results = []
         prompts = [self.make_prompt(response) for response in responses]
-        print(f"[AtomExtractor] Prompts created: {len(prompts)}")
+        # Prompts created message removed
 
         for _, response in tqdm(
             enumerate(
